@@ -205,9 +205,51 @@ def webRemoveUser():
 #Functions for mobile support
 #Start here
 
+def getUserFromPhone(secretphonekey, emailaddress):
+	try:
+		sql = "SELECT pid from users WHERE secret_phone_key=%s AND emailaddress=%s"
+		cursor.execute(sql, (secretphonekey, emailaddress))
+		if cursor.rowcount > 0:
+			#Success
+			return int(cursor.fetchone()[0])
+		else:
+			abort(400, "Incorrect secret phone key or email address")
+
+@app.route('/app/v1.0/registerDevice', methods=['POST'])
+def registerDevice():
+	#Arguments are phone-id, email, security questions (4)
+	if not request.get_json(force=True, silent=True):
+		abort(400, "Request in the wrong format")
+	req = request.get_json(force=True)
+	if not 'phone-id' in req:
+		abort(400, "Phone ID missing")
+	if not 'emailaddress' in req:
+		abort(400, "Email Address missing")
+	if not 'phone_key' in req:
+		abort(400, "Secret phone key missing")
+	if not 'secq1' in req or 'seca1' in req or 'secq2' in req or 'seca2' in req or 'secq3' in req or 'seca3' in req or 'secq4' in req or 'seca4' in req:
+		abort(400, "Security questions incomplete or missing")
+
+	#Get the user in question from the secret phone key
+	user_id = getUserFromPhone(req['phone_key'], req['emailaddress'])
+
+	#Add security questons and phone-id to user profile
+	try:
+		sql = "UPDATE users SET secq1=%s, seca1=%s, secq2=%s, seca2=%s, secq3=%s, seca3=%s, secq4=%s, seca4=%s, phone-id=%s WHERE pid=%s"
+		cursor.execute(sql, (req['secq1']))
 
 
+@app.route('/app/v1.0/checkAuthRequired', methods=['GET'])
+def checkIfAuthRequired():
+	pass
 
+@app.route('/app/v1.0/authenticate', methods=['POST'])
+def authenticateByPhone():
+	pass
+
+@app.route('/app/v1.0/deactivate', methods=['POST'])
+def deactivatePhone():
+	pass
 
 #Error handling functions
 #Start here

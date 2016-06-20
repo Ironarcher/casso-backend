@@ -1,0 +1,5 @@
+To test out:
+dev_appserver.py .
+
+To deploy:
+appcfg.py -A casso-1339 -V alpha-003 update ./
