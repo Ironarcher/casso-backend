@@ -118,7 +118,7 @@ def webAuthenticateUser():
 	if 'apikey' not in req:
 		abort(400, "Api key missing")
 	if 'ipaddress' not in req:
-		abort(400, "IP address missing")
+		abort(400, "IP address of client missing")
 
 	#Check the website's secret key
 	websiteID = getWebsiteID(req['apikey'])
@@ -128,30 +128,41 @@ def webAuthenticateUser():
 	#Verify username/email and mark user down for authentication (update timestamp)
 	user_id = 0
 	if 'emailaddress' in req:
-		sql = "SELECT pid from users WHERE emailaddress=%s"
-		cursor.execute(sql, (req['emailaddress'],))
+		sql = "SELECT pid from users WHERE emailaddress=%s AND website_id=%s"
+		cursor.execute(sql, (req['emailaddress'], websiteID))
 		if cursor.rowcount > 0:
-			user_id = cursor.fetchone()
+			user_id = int(cursor.fetchone()[0])
 		else:
 			abort(400, "Incorrect Email address (does not exist in database)")
 	elif 'username' in req:
-		sql = "SELECT pid from users WHERE username=%s"
-		cursor.execute(sql, (req['username'],))
+		sql = "SELECT pid from users WHERE username=%s AND website_id=%s"
+		cursor.execute(sql, (req['username'], websiteID))
 		if cursor.rowcount > 0:
-			user_id = cursor.fetchone()
+			user_id = int(cursor.fetchone()[0])
 		else:
 			abort(400, "Incorrect Username (does not exist in database)")
 	else:
 		abort(400, "No username or email address provided to authenticate")
 
+	#Save record of authentication
+	saveInteraction(req['ipaddress'], user_id)
+
 	try:
-		cursor.execute("UPDATE users SET last_auth_request=NOW() WHERE pid=%s", (user_id,))
+		sql = "UPDATE users SET last_auth_request=NOW() WHERE pid=%s"
+		cursor.execute(sql, (user_id,))
 		db.commit()
 	except:
-		print("updating last_auth_request failed")
-		abort(400, "Failed to push authentication request")
+		abort(400, "Failed to update user account")
 
 	return jsonify({'status':'success'})
+
+def saveInteraction(ipaddress, user_id):
+	try:
+		sql = "INSERT INTO comms (ipaddress, user_id) VALUES (%s, %s)"
+		cursor.execute(sql, (ipaddress, user_id))
+		db.commit()
+	except:
+		abort(400, "Failed to add interaction to database")
 
 @app.route('/api/v1.0/removeUser', methods=['POST'])
 def webRemoveUser():
@@ -172,15 +183,12 @@ def webRemoveUser():
 		abort(400, "Incorrect API Key")
 
 	#Check to make sure user exists
-	try:
-		sql = "SELECT pid from users WHERE website_id=%s AND phonenumber=%s AND emailaddress=%s"
-		cursor.execute(sql, (websiteID, req['phonenumber'], req['emailaddress']))
-		if cursor.rowcount < 1:
-			abort(400, "User that you are trying to delete does not exist")
-		user_id = int(cursor.fetchone()[0])
-	except:
-		print('Error checking user')
-		abort(400, "Error checking user during deletion")
+	#Unshielded code: Prone to erroring
+	sql = "SELECT pid from users WHERE website_id=%s AND phonenumber=%s AND emailaddress=%s"
+	cursor.execute(sql, (websiteID, req['phonenumber'], req['emailaddress']))
+	if cursor.rowcount < 1:
+		abort(400, "User that you are trying to delete does not exist")
+	user_id = int(cursor.fetchone()[0])
 
 	#TODO: Verify that the server has not deleted too many accounts recently
 	#Remove user from the database

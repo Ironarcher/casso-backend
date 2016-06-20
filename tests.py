@@ -104,17 +104,46 @@ class CassoTesting(unittest.TestCase):
 		query = {"emailaddress":"koolmamma@gmail.com", "phonenumber":"102108940","apikey":"1421512"}
 		self.assertIn("success", post('/api/v1.0/removeUser', query))
 
+
 	def testAuthenticateUserWrongFormat(self):
 		query = {}
 		self.assertIn("Request in the wrong format", post('/api/v1.0/authenticateUser', query))
 
-	def testAuthenticateNoApiKey(self):
+	def testAuthenticateUserNoApiKey(self):
 		query = {"test":"test"}
 		self.assertIn("Api key missing", post('/api/v1.0/authenticateUser', query))
 
-	def testAuthenticateNoApiKey(self):
-		query = {"test":"test"}
-		self.assertIn("Api key missing", post('/api/v1.0/authenticateUser', query))
+	def testAuthenticateUserNoIPAddress(self):
+		query = {"apikey":"0000"}
+		self.assertIn("IP address of client missing", post('/api/v1.0/authenticateUser', query))
+
+	def testAuthenticateUserIncorrectApiKey(self):
+		query = {"apikey":"0000","ipaddress":"158.123.131.1"}
+		self.assertIn("Incorrect API Key", post('/api/v1.0/authenticateUser', query))
+
+	def testAuthenticateUserNoEmailAddressOrUsername(self):
+		query = {"apikey":"1421512","ipaddress":"158.123.131.1"}
+		self.assertIn("No username or email address provided to authenticate", post('/api/v1.0/authenticateUser', query))
+
+	def testAuthenticateUserIncorrectEmailAddress(self):
+		query = {"apikey":"1421512","ipaddress":"158.123.131.1","emailaddress":"nonexistantemail@nothing.com"}
+		self.assertIn("Incorrect Email address (does not exist in database)", post('/api/v1.0/authenticateUser', query))
+
+	def testAuthenticateUserIncorrectEmailAddressWithWebsite(self):
+		query = {"apikey":"121512","ipaddress":"158.123.131.1","emailaddress":"arpad.kovesdy@gmail.com"}
+		self.assertIn("Incorrect Email address (does not exist in database)", post('/api/v1.0/authenticateUser', query))
+
+	def testAuthenticateUserIncorrectEmailAddress(self):
+		query = {"apikey":"121512","ipaddress":"158.123.131.1","emailaddress":"arpad.kovesdy@gmail.com"}
+		self.assertIn("Incorrect Email address (does not exist in database)", post('/api/v1.0/authenticateUser', query))
+
+	def testAuthenticateUserIncorrectUsername(self):
+		query = {"apikey":"1421512","ipaddress":"158.123.131.1","username":"nonexistantusername"}
+		self.assertIn("Incorrect Username (does not exist in database)", post('/api/v1.0/authenticateUser', query))
+
+	def testAuthenticateUser(self):
+		query = {"apikey":"1421512","ipaddress":"000.000.000.0","emailaddress":"arpad.kovesdy@gmail.com"}
+		self.assertIn("success", post('/api/v1.0/authenticateUser', query))
 
 if __name__ == '__main__':
 	unittest.main()
