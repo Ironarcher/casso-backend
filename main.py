@@ -209,6 +209,15 @@ def webRemoveUser():
 
 	return jsonify({'status':'success'})
 
+@app.route('/api/v1.0/checkIfDeviceAuthed/<int:user_id>', methods=['GET'])
+def checkIfDeviceAuthed(user_id):
+	sql = "SELECT last_device_auth from users WHERE pid=%s"
+	cursor.execute(sql, (user_id,))
+	if cursor.rowcount > 0:
+		#Success
+		last_device_auth = cursor.fetchone()[0]
+
+
 #Functions for mobile support
 #Start here
 
@@ -268,6 +277,7 @@ def checkIfAuthRequired(user_id):
 		abort(400, "User ID does not exist")
 		return jsonify({"1":"0"})
 
+#Requires testing
 @app.route('/app/v1.0/authenticate', methods=['POST'])
 def authenticateByPhone():
 	#Arguments are phone number, secret phone key, user id, phone-id
@@ -284,11 +294,55 @@ def authenticateByPhone():
 	if not 'phone-id' in req:
 		abort(400, "Phone ID missing")
 
-
+	sql = "SELECT user_id from devices WHERE phone_id=%s AND secretphonekey=%s"
+	cursor.execute(sql, (req['phone-id'], req['secretphonekey']))
+	if cursor.rowcount > 0:
+		#Success
+		new_user_id = int(cursor.fetchone()[0])
+		sql = "SELECT pid from users WHERE phonenumber=%s"
+		cursor.execute(sql, (req['phonenumber']))
+		if cursor.rowcount > 0:
+			#Phone number verified
+			if int(cursor.fetchone()[0]) == new_user_id:		
+				if new_user_id == req['user_id']:
+					#Success, authenticated, set last device authenticated
+					sql = "UPDATE users SET last_device_auth=NOW() WHERE user_id=%s AND phonenumber=%s"
+					cursor.execute(sql, (new_user_id, req['phonenumber']))
+					db.commit()
+					sql = "SELECT ipaddress, pid from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
+					cursor.execute(sql, (new_user_id, new_user_id))
+					if cursor.rowcount > 0:
+						#Success
+						return jsonify({"status":"success", "ipaddress":cursor.fetchone()[0], "comm_id":cursor.fetchone()[1]})
+					else:
+						abort(400, "No valid communication found from client")
+				else:
+					abort(400, "Not allowed for authentication")
+			else:
+				abort(400, "Phone number does not match other data")
+		else:
+			abort(400, "Incorrect phone number provided")
+	else:
+		abort(400, "Incorrect device information provided")
 
 @app.route('/app/v1.0/deactivate', methods=['POST'])
 def deactivatePhone():
-	pass
+	#Arguments are secret phone key, user id, phone-id
+	#Return status
+	if not request.get_json(force=True, silent=True):
+		abort(400, "Request in the wrong format")
+	req = request.get_json(force=True)
+	if not 'secretphonekey' in req:
+		abort(400, "Secret phone key missing")
+	if not 'user_id' in req:
+		abort(400, "User ID missing")
+	if not 'phone-id' in req:
+		abort(400, "Phone ID missing")
+
+	#Delete phone record from database
+	sql = "DELETE FROM devices WHERE secretphonekey=%s, user_id=%s, phone_id=%s"
+	cursor.execute(sql, (req['secretphonekey'], req['user_id'], req['phone-id']))
+	db.commit()
 
 #Error handling functions
 #Start here
