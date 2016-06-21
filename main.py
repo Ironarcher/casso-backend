@@ -1,6 +1,8 @@
 import os
 import random
 import MySQLdb
+import datetime
+import time
 # Import the Flask Framework
 from flask import Flask, jsonify, request, abort
 app = Flask(__name__)
@@ -41,7 +43,7 @@ def webRegisterWebsite():
 
 @app.route('/api/v1.0/registerUser', methods=['POST'])
 def webRegisterUser():
-	#Arguments are optional username, email address, api key, phone number, ip address
+	#Arguments are optional username, email address, api key, phone number, ip address, phone-id
 	if not request.get_json(force=True, silent=True):
 		abort(400, "Request in the wrong format")
 	req = request.get_json(force=True)
@@ -51,6 +53,8 @@ def webRegisterUser():
 		abort(400, "Api key missing")
 	if not 'phonenumber' in req:
 		abort(400, "Phone number missing")
+	if not 'phone-id' in req:
+		abort(400, "Phone ID missing")
 
 	#Get the website's id or reject if incorrect
 	websiteID = getWebsiteID(req['apikey'])
@@ -64,13 +68,16 @@ def webRegisterUser():
 	#Create a new user entry
 	try:
 		if 'username' in req:
-			sql = "INSERT INTO users (username, emailaddress, phonenumber, secretphonekey, website_id) VALUES (%s,%s,%s,%s,%s)"
-			cursor.execute(sql, (req['username'], req['emailaddress'], req['phonenumber'], randKey(40), websiteID))
+			sql = "INSERT INTO users (username, emailaddress, phonenumber, website_id) VALUES (%s,%s,%s,%s)"
+			cursor.execute(sql, (req['username'], req['emailaddress'], req['phonenumber'], websiteID))
 			db.commit()
 		else:
-			sql = "INSERT INTO users (emailaddress, phonenumber, secretphonekey, website_id) VALUES (%s,%s,%s,%s)"
-			cursor.execute(sql, (req['emailaddress'], req['phonenumber'], randKey(40), websiteID))
+			sql = "INSERT INTO users (emailaddress, phonenumber, website_id) VALUES (%s,%s,%s)"
+			cursor.execute(sql, (req['emailaddress'], req['phonenumber'], websiteID))
 			db.commit()
+
+		sql = "UPDATE users SET phone_id=%s WHERE emailaddress=%s"
+		cursor.execute(sql, (req['phone-id'], req['emailaddress']))
 	except:
 		abort(400, "database error during user creation")
 
@@ -205,19 +212,18 @@ def webRemoveUser():
 #Functions for mobile support
 #Start here
 
-def getUserFromPhone(secretphonekey, emailaddress):
-	try:
-		sql = "SELECT pid from users WHERE secret_phone_key=%s AND emailaddress=%s"
-		cursor.execute(sql, (secretphonekey, emailaddress))
-		if cursor.rowcount > 0:
-			#Success
-			return int(cursor.fetchone()[0])
-		else:
-			abort(400, "Incorrect secret phone key or email address")
+def getUserFromPhone(emailaddress, phonenumber):
+	sql = "SELECT pid from users WHERE emailaddress=%s AND phonenumber=%s"
+	cursor.execute(sql, (emailaddress, phonenumber))
+	if cursor.rowcount > 0:
+		#Success
+		return int(cursor.fetchone()[0])
+	else:
+		abort(400, "Incorrect secret phone number or email address")
 
 @app.route('/app/v1.0/registerDevice', methods=['POST'])
 def registerDevice():
-	#Arguments are phone-id, email, security questions (4)
+	#Arguments are phone-id, email, phone number, security questions (4)
 	if not request.get_json(force=True, silent=True):
 		abort(400, "Request in the wrong format")
 	req = request.get_json(force=True)
@@ -225,27 +231,60 @@ def registerDevice():
 		abort(400, "Phone ID missing")
 	if not 'emailaddress' in req:
 		abort(400, "Email Address missing")
-	if not 'phone_key' in req:
-		abort(400, "Secret phone key missing")
-	if not 'secq1' in req or 'seca1' in req or 'secq2' in req or 'seca2' in req or 'secq3' in req or 'seca3' in req or 'secq4' in req or 'seca4' in req:
+	if not 'phonenumber' in req:
+		abort(400, "Phone number missing")
+	if not 'secq1' in req or not 'seca1' in req or not 'secq2' in req or not 'seca2' in req or not 'secq3' in req or not 'seca3' in req or not 'secq4' in req or not 'seca4' in req:
 		abort(400, "Security questions incomplete or missing")
 
 	#Get the user in question from the secret phone key
-	user_id = getUserFromPhone(req['phone_key'], req['emailaddress'])
+	user_id = getUserFromPhone(req['emailaddress'], req['phonenumber'])
+	secretkey = randKey(40)
 
 	#Add security questons and phone-id to user profile
-	try:
-		sql = "UPDATE users SET secq1=%s, seca1=%s, secq2=%s, seca2=%s, secq3=%s, seca3=%s, secq4=%s, seca4=%s, phone-id=%s WHERE pid=%s"
-		cursor.execute(sql, (req['secq1']))
+	sql = "INSERT INTO devices (secq1, secq2, secq3, secq4, seca1, seca2, seca3, seca4, phone_id, secretphonekey, user_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+	cursor.execute(sql, (req['secq1'], req['secq2'], req['secq3'], req['secq4'], req['seca1'], req['seca2'], req['seca3'], req['seca4'], req['phone-id'],
+		secretkey, user_id))
+	db.commit()
 
+	return jsonify({"status":"success", "user_id":user_id, "secretphonekey":secretkey})
 
-@app.route('/app/v1.0/checkAuthRequired', methods=['GET'])
-def checkIfAuthRequired():
-	pass
+#Potential security flaw: consider switching to POST request
+@app.route('/app/v1.0/checkAuth/<int:user_id>', methods=['GET'])
+def checkIfAuthRequired(user_id):
+	sql = "SELECT last_auth_request from users WHERE pid=%s"
+	cursor.execute(sql, (user_id,))
+	if cursor.rowcount > 0:
+		#Success
+		#Threshold for waiting for authentication: 20 seconds
+		#last_auth_time = datetime.datetime.strptime(cursor.fetchone()[0], f)
+		last_auth_time = cursor.fetchone()[0]
+		if (datetime.datetime.utcnow() - last_auth_time).total_seconds() < 15.0:
+			#Authenticated recently, require phone verification
+			#return True (1)
+			return jsonify({"0": "1"})
+		else:
+			return jsonify({"0": "0"})
+	else:
+		abort(400, "User ID does not exist")
+		return jsonify({"1":"0"})
 
 @app.route('/app/v1.0/authenticate', methods=['POST'])
 def authenticateByPhone():
-	pass
+	#Arguments are phone number, secret phone key, user id, phone-id
+	#Return IP Adress, other client device information
+	if not request.get_json(force=True, silent=True):
+		abort(400, "Request in the wrong format")
+	req = request.get_json(force=True)
+	if not 'phonenumber' in req:
+		abort(400, "Phone number missing")
+	if not 'secretphonekey' in req:
+		abort(400, "Secret phone key missing")
+	if not 'user_id' in req:
+		abort(400, "User ID missing")
+	if not 'phone-id' in req:
+		abort(400, "Phone ID missing")
+
+
 
 @app.route('/app/v1.0/deactivate', methods=['POST'])
 def deactivatePhone():

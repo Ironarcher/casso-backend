@@ -3,7 +3,7 @@ import urllib, urllib2
 import requests
 import json
 
-baseurl = "https://casso-1339.appspot.com"
+baseurl = "http://localhost:8080"
 
 def getStatusCode(url):
 	response = urllib.urlopen(baseurl + url)
@@ -27,44 +27,48 @@ class CassoTesting(unittest.TestCase):
 		self.assertEqual(getResponseMessage('/'), "Hello again!")
 
 
-	def testRegisterWrongFormat(self):
+	def testRegisterUserWrongFormat(self):
 		query = {}
 		self.assertIn("Request in the wrong format", post('/api/v1.0/registerUser', query))
 
-	def testRegisterNoEmail(self):
+	def testRegisterUserNoEmail(self):
 		query = {"test":"test"}
 		self.assertIn("Email address missing", post('/api/v1.0/registerUser', query))
 
-	def testRegisterNoApiKey(self):
+	def testRegisterUserNoApiKey(self):
 		query = {"emailaddress":"arpad.kovesdy@gmail.com"}
 		self.assertIn("Api key missing", post('/api/v1.0/registerUser', query))
 
-	def testRegisterNoPhoneNumber(self):
+	def testRegisterUserNoPhoneNumber(self):
 		query = {"emailaddress":"arpad.kovesdy@gmail.com","apikey":"000"}
 		self.assertIn("Phone number missing", post('/api/v1.0/registerUser', query))
 
-	def testRegisterIncorrectWebsiteID(self):
-		query = {"emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"10991112222","apikey":"000","ipaddress":"random"}
+	def testRegisterUserNoPhoneID(self):
+		query = {"emailaddress":"arpad.kovesdy@gmail.com","apikey":"000", "phonenumber":"000"}
+		self.assertIn("Phone ID missing", post('/api/v1.0/registerUser', query))
+
+	def testRegisterUserIncorrectWebsiteID(self):
+		query = {"emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"10991112222","apikey":"000","phone-id":"Arpad's stupid phone"}
 		self.assertIn("Incorrect API Key", post('/api/v1.0/registerUser', query))
 
 	def testRegisterUserAlreadyExists1(self):
-		query = {"emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"3","apikey":"1421512","ipaddress":"random"}
+		query = {"emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"3","apikey":"1421512","phone-id":"Arpad's stupid phone"}
 		self.assertIn("User already with that email or phone number already exists", post('/api/v1.0/registerUser', query))
 
 	def testRegisterUserAlreadyExists2(self):
-		query = {"emailaddress":"arpad","phonenumber":"10991112222","apikey":"1421512","ipaddress":"random"}
+		query = {"emailaddress":"arpad","phonenumber":"10991112222","apikey":"1421512","phone-id":"Arpad's stupid phone"}
 		self.assertIn("User already with that email or phone number already exists", post('/api/v1.0/registerUser', query))
 
 	def testRegisterUserAlreadyExists3(self):
-		query = {"emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"10991112222","apikey":"1421512","ipaddress":"random"}
+		query = {"emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"10991112222","apikey":"1421512","phone-id":"Arpad's stupid phone"}
 		self.assertIn("User already with that email or phone number already exists", post('/api/v1.0/registerUser', query))
 
 	def testRegisterUserCreationWithUsername(self):
-		query = {"username":"testuser2","emailaddress":"koolmammal5@gmail.com","phonenumber":"10239108940","apikey":"1421512","ipaddress":"random"}
+		query = {"username":"testuser2","emailaddress":"koolmammal5@gmail.com","phonenumber":"10239108940","apikey":"1421512","phone-id":"testphoneid"}
 		self.assertIn("success", post('/api/v1.0/registerUser', query))
 
 	def testRegisterUserCreationWithoutUsername(self):
-		query = {"emailaddress":"koolmamma@gmail.com","phonenumber":"102108940","apikey":"1421512","ipaddress":"random"}
+		query = {"emailaddress":"koolmamma@gmail.com","phonenumber":"102108940","apikey":"1421512","phone-id":"testphoneid"}
 		self.assertIn("success", post('/api/v1.0/registerUser', query))
 
 
@@ -144,6 +148,55 @@ class CassoTesting(unittest.TestCase):
 	def testAuthenticateUser(self):
 		query = {"apikey":"1421512","ipaddress":"000.000.000.0","emailaddress":"arpad.kovesdy@gmail.com"}
 		self.assertIn("success", post('/api/v1.0/authenticateUser', query))
+
+
+	#Mobile functions
+
+	def testRegisterDeviceWrongFormat(self):
+		query = {}
+		self.assertIn("Request in the wrong format", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDeviceMissingPhoneID(self):
+		query = {"test":"test"}
+		self.assertIn("Phone ID missing", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDeviceMissingEmailAddress(self):
+		query = {"phone-id":"0"}
+		self.assertIn("Email Address missing", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDevicePhoneNumberMissing(self):
+		query = {"phone-id":"0", "emailaddress":"testemail@email.com"}
+		self.assertIn("Phone number missing", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDeviceSecurityQuestions1(self):
+		query = {"phone-id":"0", "emailaddress":"testemail@email.com", "phonenumber":"000"}
+		self.assertIn("Security questions incomplete or missing", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDeviceSecurityQuestions2(self):
+		query = {"phone-id":"0", "emailaddress":"testemail@email.com","phonenumber":"000","secq1":"Mother's maiden name?"}
+		self.assertIn("Security questions incomplete or missing", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDeviceUserIdIncorrect(self):
+		query = {"phone-id":"0", "emailaddress":"testemail@email.com","phonenumber":"000","secq1":"Mother's maiden name?",
+		"secq2":"1","secq3":"2","secq4":"3","seca1":"1","seca2":"2","seca3":"3","seca4":"4,"}
+		self.assertIn("Incorrect secret phone number or email address", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDeviceCompletely(self):
+		query = {"phone-id":"Arpad's nonexistant iphone", "emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"10991112222","secq1":"Mother's maiden name?",
+		"secq2":"1","secq3":"2","secq4":"3","seca1":"1","seca2":"2","seca3":"3","seca4":"4,"}
+		self.assertIn("success", post('/app/v1.0/registerDevice', query))
+
+	def testRegisterDeviceCompletely2(self):
+		query = {"phone-id":"Arpad's nonexistant iphone", "emailaddress":"arpad.kovesdy@gmail.com","phonenumber":"10991112222","secq1":"Mother's maiden name?",
+		"secq2":"1","secq3":"2","secq4":"3","seca1":"1","seca2":"2","seca3":"3","seca4":"4,"}
+		self.assertIn("1", post('/app/v1.0/registerDevice', query))
+
+
+	def testCheckAuthReqUserDoesNotExist(self):
+		self.assertIn("User ID does not exist", getResponseMessage('/app/v1.0/checkAuth/909090'))
+
+	def testCheckAuthReqCompletely(self):
+		self.assertIn("1", getResponseMessage('/app/v1.0/checkAuth/1'))
 
 if __name__ == '__main__':
 	unittest.main()
