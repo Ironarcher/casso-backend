@@ -151,12 +151,23 @@ def webAuthenticateUser():
 	else:
 		abort(400, "No username or email address provided to authenticate")
 
+	#Check most that there is not a more recent user authentication attempt
+	sql = "SELECT pid, creation_time from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
+	cursor.execute(sql, (user_id, user_id))
+	if cursor.rowcount > 0:
+		#Success
+		row = cursor.fetchone()
+		comm_id = int(row[0])
+		creation_time = row[1]
+		if (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
+			abort(400, "Already authenticating another account")
+
 	#Save record of authentication
 	saveInteraction(req['ipaddress'], user_id)
 
 	try:
-		sql = "UPDATE users SET last_auth_request=NOW() WHERE pid=%s"
-		cursor.execute(sql, (user_id,))
+		sql = "UPDATE users SET current_auth_comm_id=%s WHERE pid=%s"
+		cursor.execute(sql, (comm_id+1, user_id))
 		db.commit()
 	except:
 		abort(400, "Failed to update user account")
@@ -209,13 +220,34 @@ def webRemoveUser():
 
 	return jsonify({'status':'success'})
 
+#Requires testing
 @app.route('/api/v1.0/checkIfDeviceAuthed/<int:user_id>', methods=['GET'])
 def checkIfDeviceAuthed(user_id):
-	sql = "SELECT last_device_auth from users WHERE pid=%s"
+	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
 	cursor.execute(sql, (user_id,))
 	if cursor.rowcount > 0:
 		#Success
-		last_device_auth = cursor.fetchone()[0]
+		comm_id = int(cursor.fetchone()[0])
+		sql = "SELECT creation_time, authed from comms WHERE pid=%s"
+		cursor.execute(sql, (comm_id,))
+		if cursor.rowcount > 0:
+			#Success
+			row = cursor.fetchone()
+			creation_time = row[0]
+			if int(row[1]) == 1:
+				#Check to make sure that authentication is not greater than 15 seconds old
+				if (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
+					return jsonify({"status":"success"})
+				else:
+					abort(400, "request invalidated: too old")
+			elif int(row[1]) == 0:
+				return jsonify({"status":"failure"})
+			else:
+				abort(400, "Database error")
+		else:
+			abort(400, "Database error")
+	else:
+		abort(400, "User does not exist")
 
 
 #Functions for mobile support
@@ -255,29 +287,38 @@ def registerDevice():
 		secretkey, user_id))
 	db.commit()
 
-	return jsonify({"status":"success", "user_id":user_id, "secretphonekey":secretkey})
+	sql = "SELECT url from websites WHERE pid=(SELECT website_id from users WHERE pid=%s)"
+	cursor.execute(sql, (user_id,))
+	if cursor.rowcount > 0:
+		url = cursor.fetchone()[0]
+	else:
+		url = "unknown"
+	return jsonify({"status":"success", "user_id":user_id, "secretphonekey":secretkey, "url":url})
 
 #Potential security flaw: consider switching to POST request
 @app.route('/app/v1.0/checkAuth/<int:user_id>', methods=['GET'])
 def checkIfAuthRequired(user_id):
-	sql = "SELECT last_auth_request from users WHERE pid=%s"
+	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
 	cursor.execute(sql, (user_id,))
 	if cursor.rowcount > 0:
 		#Success
-		#Threshold for waiting for authentication: 20 seconds
-		#last_auth_time = datetime.datetime.strptime(cursor.fetchone()[0], f)
-		last_auth_time = cursor.fetchone()[0]
-		if (datetime.datetime.utcnow() - last_auth_time).total_seconds() < 15.0:
-			#Authenticated recently, require phone verification
-			#return True (1)
-			return jsonify({"0": "1"})
+		comm_id = int(cursor.fetchone()[0])
+		sql = "SELECT authed from comms WHERE pid=%s"
+		cursor.execute(sql, (comm_id,))
+		if cursor.rowcount > 0:
+			#Success
+			result = int(cursor.fetchone()[0])
+			if result == 1:
+				return jsonify({"0":"-1"})
+			elif result == 0:
+				return jsonify({"0":comm_id})
+			else:
+				abort(400, "Database error")
 		else:
-			return jsonify({"0": "0"})
+			abort(400, "Database error")
 	else:
 		abort(400, "User ID does not exist")
-		return jsonify({"1":"0"})
 
-#Requires testing
 @app.route('/app/v1.0/authenticate', methods=['POST'])
 def authenticateByPhone():
 	#Arguments are phone number, secret phone key, user id, phone-id
@@ -300,22 +341,16 @@ def authenticateByPhone():
 		#Success
 		new_user_id = int(cursor.fetchone()[0])
 		sql = "SELECT pid from users WHERE phonenumber=%s"
-		cursor.execute(sql, (req['phonenumber']))
+		cursor.execute(sql, (req['phonenumber'],))
 		if cursor.rowcount > 0:
 			#Phone number verified
 			if int(cursor.fetchone()[0]) == new_user_id:		
-				if new_user_id == req['user_id']:
-					#Success, authenticated, set last device authenticated
-					sql = "UPDATE users SET last_device_auth=NOW() WHERE user_id=%s AND phonenumber=%s"
-					cursor.execute(sql, (new_user_id, req['phonenumber']))
+				if new_user_id == int(req['user_id']):
+					#Success, authenticated, set comm's authed to true
+					sql = "UPDATE comms SET authed=true WHERE pid=(SELECT current_auth_comm_id FROM users WHERE pid=%s)"
+					cursor.execute(sql, (new_user_id,))
 					db.commit()
-					sql = "SELECT ipaddress, pid from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
-					cursor.execute(sql, (new_user_id, new_user_id))
-					if cursor.rowcount > 0:
-						#Success
-						return jsonify({"status":"success", "ipaddress":cursor.fetchone()[0], "comm_id":cursor.fetchone()[1]})
-					else:
-						abort(400, "No valid communication found from client")
+					return jsonify({"status":"success"})
 				else:
 					abort(400, "Not allowed for authentication")
 			else:
@@ -340,9 +375,10 @@ def deactivatePhone():
 		abort(400, "Phone ID missing")
 
 	#Delete phone record from database
-	sql = "DELETE FROM devices WHERE secretphonekey=%s, user_id=%s, phone_id=%s"
+	sql = "DELETE FROM devices WHERE secretphonekey=%s AND user_id=%s AND phone_id=%s"
 	cursor.execute(sql, (req['secretphonekey'], req['user_id'], req['phone-id']))
 	db.commit()
+	return jsonify({"status":"success"})
 
 #Error handling functions
 #Start here

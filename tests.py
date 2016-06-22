@@ -3,7 +3,7 @@ import urllib, urllib2
 import requests
 import json
 
-baseurl = "http://localhost:8080"
+baseurl = "https://casso-1339.appspot.com/"
 
 def getStatusCode(url):
 	response = urllib.urlopen(baseurl + url)
@@ -149,6 +149,10 @@ class CassoTesting(unittest.TestCase):
 		query = {"apikey":"1421512","ipaddress":"000.000.000.0","emailaddress":"arpad.kovesdy@gmail.com"}
 		self.assertIn("success", post('/api/v1.0/authenticateUser', query))
 
+	def testAuthenticateUser2(self):
+		query = {"apikey":"1421512","ipaddress":"000.000.000.0","username":"akovesdy"}
+		self.assertIn("Already authenticating another account", post('/api/v1.0/authenticateUser', query))
+
 
 	#Mobile functions
 
@@ -196,7 +200,82 @@ class CassoTesting(unittest.TestCase):
 		self.assertIn("User ID does not exist", getResponseMessage('/app/v1.0/checkAuth/909090'))
 
 	def testCheckAuthReqCompletely(self):
-		self.assertIn("1", getResponseMessage('/app/v1.0/checkAuth/1'))
+		self.assertIn("0", getResponseMessage('/app/v1.0/checkAuth/1'))
+
+
+	def testAuthenticatePhoneWrongFormat(self):
+		query = {}
+		self.assertIn("Request in the wrong format", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneMissingPhoneNumber(self):
+		query = {"test":"test"}
+		self.assertIn("Phone number missing", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneMissingSecretPhoneKey(self):
+		query = {"phonenumber":"000"}
+		self.assertIn("Secret phone key missing", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneMissingUserID(self):
+		query = {"phonenumber":"000", "secretphonekey":"ghfhfh"}
+		self.assertIn("User ID missing", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneMissingPhoneID(self):
+		query = {"phonenumber":"000", "secretphonekey":"ghfhfh", "user_id":"Arpad's fake iphone"}
+		self.assertIn("Phone ID missing", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneWrongPhoneID(self):
+		query = {"phonenumber":"000", "secretphonekey":"s2BH3C7thmSX9j0K6ag6eqqqJhUTB9gOgu62QfZf", "user_id":"0",
+		"phone-id":"Wrong phoneid"}
+		self.assertIn("Incorrect device information provided", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneWrongSecretKey(self):
+		query = {"phonenumber":"000", "secretphonekey":"aaa", "user_id":"0",
+		"phone-id":"Arpad's nonexistant iphone"}
+		self.assertIn("Incorrect device information provided", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneWrongPhoneNumber(self):
+		query = {"phonenumber":"000", "secretphonekey":"s2BH3C7thmSX9j0K6ag6eqqqJhUTB9gOgu62QfZf", "user_id":"0",
+		"phone-id":"Arpad's nonexistant iphone"}
+		self.assertIn("Incorrect phone number provided", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneWrongUserID(self):
+		query = {"phonenumber":"10991112222", "secretphonekey":"s2BH3C7thmSX9j0K6ag6eqqqJhUTB9gOgu62QfZf", "user_id":"0",
+		"phone-id":"Arpad's nonexistant iphone"}
+		self.assertIn("Not allowed for authentication", post('/app/v1.0/authenticate', query))
+
+	def testAuthenticatePhoneCompletely(self):
+		query = {"phonenumber":"10991112222", "secretphonekey":"s2BH3C7thmSX9j0K6ag6eqqqJhUTB9gOgu62QfZf", "user_id":"1",
+		"phone-id":"Arpad's nonexistant iphone"}
+		self.assertIn("success", post('/app/v1.0/authenticate', query))
+
+
+	def testDeactivatePhoneWrongFormat(self):
+		query = {}
+		self.assertIn("Request in the wrong format", post('/app/v1.0/deactivate', query))
+
+	def testDeactivatePhoneMissingSecretPhoneKey(self):
+		query = {"test":"test"}
+		self.assertIn("Secret phone key missing", post('/app/v1.0/deactivate', query))
+
+	def testDeactivatePhoneMissingUserID(self):
+		query = {"secretphonekey":"ZjvFevrw9g1XhEeT5uQmoeWe1AItxMwbGj6e0OOH"}
+		self.assertIn("User ID missing", post('/app/v1.0/deactivate', query))
+
+	def testDeactivatePhoneMissingPhoneID(self):
+		query = {"secretphonekey":"ZjvFevrw9g1XhEeT5uQmoeWe1AItxMwbGj6e0OOH", "user_id":"1"}
+		self.assertIn("Phone ID missing", post('/app/v1.0/deactivate', query))
+
+	def testDeactivatePhoneCompletely(self):
+		query = {"secretphonekey":"ZjvFevrw9g1XhEeT5uQmoeWe1AItxMwbGj6e0OOH", "user_id":"1", "phone-id":"Arpad's nonexistant iphone"}
+		self.assertIn("success", post('/app/v1.0/deactivate', query))
+
+
+	def testCheckIfDeviceAuthDoneFromWebsite_useriddoesnotexist(self):
+		self.assertIn("User does not exist", getResponseMessage('/api/v1.0/checkIfDeviceAuthed/909090'))
+
+	def ZtestCheckIfDeviceAuthDoneFromWebsite(self):
+		self.assertIn("success", getResponseMessage('/api/v1.0/checkIfDeviceAuthed/1'))
+
 
 if __name__ == '__main__':
 	unittest.main()
