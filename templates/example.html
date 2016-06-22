@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+		<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+		<style>
+		.topspace {
+			margin-top: 40px;
+		}
+		#username_confirmed{
+			padding-right: 40px;
+		}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="row topspace">
+				<div class="col-sm-4">
+					<div class="well">
+						<h1>Sign In</h1>
+						  <form method="POST" action="/example/">
+						    {{ form.csrf_token }}
+						    {{ form.username.label }} {{ form.username(size=20) }}
+						    <input type="submit" value="Login">
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script>
+		$(document).ready(function(){
+			//Initial values
+			$("#username_confirmed").hide();
+			$("#username_rejected").hide();
+			$("#phone_confirmation").hide();
+
+			//When the form is submitted by clicking submit
+			$("#loginForm").submit(function(event){
+				event.preventDefault();
+				$.ajax({
+					type:"POST",
+					url:"/example/",
+					data:{
+						type : "verify_username",
+						username : $("#username").val(),
+						csrfmiddlewaretoken : '{{csrf_token}}',
+					},
+					success:function(data){
+						if(data == "True"){
+							//Username exists
+							$("#username_confirmed").show();
+							$("#username_rejected").hide();
+							$("#phone_confirmation").show();
+							$.ajax({
+								type:"POST",
+								url:"/example/",
+								data:{
+									type : "verify_phone",
+									username : $("#username").val(),
+								}
+							});
+						} else{
+							//Username not correct
+							$("#username_confirmed").hide();
+							$("#username_rejected").show();
+							$("#phone_confirmation").hide();
+						}
+					}
+				});
+				return false;
+			});
+		});
+		</script>
+	</body>
+</html>
