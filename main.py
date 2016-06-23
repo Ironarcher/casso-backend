@@ -4,7 +4,7 @@ import MySQLdb
 import datetime
 import time
 # Import the Flask Framework
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, abort, render_template
 app = Flask(__name__)
 # Note: We don't need to call run() since our application is embedded within
 # the App Engine WSGI application server.
@@ -85,7 +85,8 @@ def webRegisterUser():
 
 def getWebsiteID(apikey):
 	try:
-		cursor.execute('SELECT pid from websites WHERE secretkey=%s', (apikey,))
+		sql = 'SELECT pid from websites WHERE secretkey=%s'
+		cursor.execute(sql, (apikey,))
 		if cursor.rowcount > 0:
 			result = cursor.fetchone()
 			return int(result[0])
@@ -172,7 +173,7 @@ def webAuthenticateUser():
 	except:
 		abort(400, "Failed to update user account")
 
-	return jsonify({'status':'success'})
+	return jsonify({'status':'success', 'user_id':str(user_id)})
 
 def saveInteraction(ipaddress, user_id):
 	try:
@@ -220,7 +221,6 @@ def webRemoveUser():
 
 	return jsonify({'status':'success'})
 
-#Requires testing
 @app.route('/api/v1.0/checkIfDeviceAuthed/<int:user_id>', methods=['GET'])
 def checkIfDeviceAuthed(user_id):
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
@@ -393,3 +393,45 @@ def page_not_found(e):
 def application_error(e):
     """Return a custom 500 error."""
     return 'Sorry, unexpected error: {}'.format(e), 500
+
+#Website begins here:
+
+#Requires testing
+#Requires error handling
+@app.route('/example', methods=['GET'])
+def demo():
+	return render_template('example.html')
+
+@app.route('/example/authenticate', methods=['POST'])
+def authenticateDemo():
+	if attempted_username in request.form['username']:
+		attempted_username = request.form['username']
+		if attempted_username == "akovesdy17":
+			#Correct username, continue
+			baseurl = "https://casso-1339.appspot.com/api/v1.0/authenticateUser"
+			data = {
+				"username" : attempted_username,
+				"apikey" : os.environ['CASSO_DEMO_APIKEY'],
+				"ipaddress" : request.remote_addr
+			}
+			res = requests.post(baseurl + "/api/v1.0/authenticateUser", data=json.dumps(queryargs))
+			response = res.json()
+			if res.status_code == 200:
+				user_id = response['user_id']
+				timeup = time.time() + 15.0
+				while(time.time() < timeup):
+					res = requests.get(baseurl + "/api/v1.0/checkIfDeviceAuthed/" + user_id)
+					response = res.json()
+					if res.status_code == 200 and response['status'] == "success":
+						redirect('/success')
+					time.sleep(0.2)
+				return jsonify({"status":"request timed out"})
+			else:
+				return jsonify({"status":"unable to authenticate"})
+		else:
+			#Incorrect username
+			return jsonify({"status":"username_missing"})
+
+@app.route('/success', methods=['GET'])
+def demo_success():
+	return "success"

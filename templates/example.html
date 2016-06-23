@@ -21,9 +21,8 @@
 				<div class="col-sm-4">
 					<div class="well">
 						<h1>Sign In</h1>
-						  <form method="POST" action="/example/">
-						    {{ form.csrf_token }}
-						    {{ form.username.label }} {{ form.username(size=20) }}
+						  <form method="POST" action="/example/" id="loginForm">
+						    <input type="text" size="40" name="Username" id="username">
 						    <input type="submit" value="Login">
 						</form>
 					</div>
@@ -42,32 +41,12 @@
 				event.preventDefault();
 				$.ajax({
 					type:"POST",
-					url:"/example/",
+					url:"/example/authenticate/",
 					data:{
-						type : "verify_username",
 						username : $("#username").val(),
-						csrfmiddlewaretoken : '{{csrf_token}}',
 					},
 					success:function(data){
-						if(data == "True"){
-							//Username exists
-							$("#username_confirmed").show();
-							$("#username_rejected").hide();
-							$("#phone_confirmation").show();
-							$.ajax({
-								type:"POST",
-								url:"/example/",
-								data:{
-									type : "verify_phone",
-									username : $("#username").val(),
-								}
-							});
-						} else{
-							//Username not correct
-							$("#username_confirmed").hide();
-							$("#username_rejected").show();
-							$("#phone_confirmation").hide();
-						}
+						
 					}
 				});
 				return false;
