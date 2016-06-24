@@ -44,6 +44,9 @@
 					},
 					success:function(data){
 						$("#information").text(data['status']);
+						if(data['status'] == "success"){
+							window.location = "/success"
+						}
 					}
 				});
 				return false;

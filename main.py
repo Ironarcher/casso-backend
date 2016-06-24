@@ -23,6 +23,7 @@ def getDB():
 	return db
 
 db = getDB()
+db.ping(True)
 cursor = db.cursor()
 
 #Website handling functions
@@ -66,20 +67,17 @@ def webRegisterUser():
 		abort(400, "User already with that email or phone number already exists")
 
 	#Create a new user entry
-	try:
-		if 'username' in req:
-			sql = "INSERT INTO users (username, emailaddress, phonenumber, website_id) VALUES (%s,%s,%s,%s)"
-			cursor.execute(sql, (req['username'], req['emailaddress'], req['phonenumber'], websiteID))
-			db.commit()
-		else:
-			sql = "INSERT INTO users (emailaddress, phonenumber, website_id) VALUES (%s,%s,%s)"
-			cursor.execute(sql, (req['emailaddress'], req['phonenumber'], websiteID))
-			db.commit()
+	if 'username' in req:
+		sql = "INSERT INTO users (username, emailaddress, phonenumber, website_id) VALUES (%s,%s,%s,%s)"
+		cursor.execute(sql, (req['username'], req['emailaddress'], req['phonenumber'], websiteID))
+		db.commit()
+	else:
+		sql = "INSERT INTO users (emailaddress, phonenumber, website_id) VALUES (%s,%s,%s)"
+		cursor.execute(sql, (req['emailaddress'], req['phonenumber'], websiteID))
+		db.commit()
 
-		sql = "UPDATE users SET phone_id=%s WHERE emailaddress=%s"
-		cursor.execute(sql, (req['phone-id'], req['emailaddress']))
-	except:
-		abort(400, "database error during user creation")
+	sql = "UPDATE users SET phone_id=%s WHERE emailaddress=%s"
+	cursor.execute(sql, (req['phone-id'], req['emailaddress']))
 
 	return jsonify({'status' : 'success'})
 
@@ -187,7 +185,6 @@ def webAuthenticateUser(req):
 			"code":400
 			}
 		return data
-
 	#Check most that there is not a more recent user authentication attempt
 	sql = "SELECT pid, creation_time from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
 	cursor.execute(sql, (user_id, user_id))
@@ -495,8 +492,8 @@ def authenticateDemo():
 				while(time.time() < timeup):
 					response = checkIfDeviceAuthed(user_id)
 					if response['status'] == "success":
-						redirect('/success')
-						#return jsonify({"status":"success"})
+						#redirect('/success')
+						return jsonify({"status":"success"})
 					time.sleep(0.5)
 				return jsonify({"status":"request timed out"})
 			else:
@@ -507,4 +504,4 @@ def authenticateDemo():
 
 @app.route('/success', methods=['GET'])
 def demo_success():
-	return "success"
+	return "<h1>success</h1>"
