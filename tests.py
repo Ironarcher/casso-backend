@@ -3,8 +3,8 @@ import urllib, urllib2
 import requests
 import json
 
-#baseurl = "https://casso-1339.appspot.com"
-baseurl = "http://localhost:8080"
+baseurl = "https://casso-1339.appspot.com"
+#baseurl = "http://localhost:8080"
 
 def getStatusCode(url):
 	response = urllib.urlopen(baseurl + url)

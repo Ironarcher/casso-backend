@@ -26,27 +26,24 @@
 						    <input type="submit" value="Login">
 						</form>
 					</div>
+					<p id="information"></p>
 				</div>
 			</div>
 		</div>
 		<script>
 		$(document).ready(function(){
-			//Initial values
-			$("#username_confirmed").hide();
-			$("#username_rejected").hide();
-			$("#phone_confirmation").hide();
-
 			//When the form is submitted by clicking submit
 			$("#loginForm").submit(function(event){
 				event.preventDefault();
+				$("#information").text("Started authentication");
 				$.ajax({
 					type:"POST",
-					url:"/example/authenticate/",
+					url:"/demoauth",
 					data:{
 						username : $("#username").val(),
 					},
 					success:function(data){
-						
+						$("#information").text(data['status']);
 					}
 				});
 				return false;

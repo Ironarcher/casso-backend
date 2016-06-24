@@ -118,20 +118,41 @@ def randKey(digits):
 		'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') for i in range(digits))
 
 @app.route('/api/v1.0/authenticateUser', methods=['POST'])
-def webAuthenticateUser():
-	#Arguments are optional either username or email, apikey, ipaddress of request to authenticate
+def func_webAuthenticateUser():
 	if not request.get_json(force=True, silent=True):
 		abort(400, "Request in the wrong format")
-	req = request.get_json(force=True)
+	response = webAuthenticateUser(request.get_json(force=True))
+	if response['status'] == "failure":
+		abort(response['code'], response['report'])
+	elif response['status'] == "success":
+		return jsonify(response)
+
+def webAuthenticateUser(req):
+	#Arguments are optional either username or email, apikey, ipaddress of request to authenticate
 	if 'apikey' not in req:
-		abort(400, "Api key missing")
+		data = {
+			"status":"failure",
+			"report":"Api key missing",
+			"code":400
+		}
+		return data
 	if 'ipaddress' not in req:
-		abort(400, "IP address of client missing")
+		data = {
+			"status":"failure",
+			"report":"IP address of client missing",
+			"code":400
+		}
+		return data
 
 	#Check the website's secret key
 	websiteID = getWebsiteID(req['apikey'])
 	if websiteID is None:
-		abort(400, "Incorrect API Key")
+		data = {
+			"status":"failure",
+			"report":"Incorrect API Key",
+			"code":400
+		}
+		return data
 
 	#Verify username/email and mark user down for authentication (update timestamp)
 	user_id = 0
@@ -141,16 +162,31 @@ def webAuthenticateUser():
 		if cursor.rowcount > 0:
 			user_id = int(cursor.fetchone()[0])
 		else:
-			abort(400, "Incorrect Email address (does not exist in database)")
+			data = {
+			"status":"failure",
+			"report":"Incorrect Email address (does not exist in database)",
+			"code":400
+			}
+			return data
 	elif 'username' in req:
 		sql = "SELECT pid from users WHERE username=%s AND website_id=%s"
 		cursor.execute(sql, (req['username'], websiteID))
 		if cursor.rowcount > 0:
 			user_id = int(cursor.fetchone()[0])
 		else:
-			abort(400, "Incorrect Username (does not exist in database)")
+			data = {
+			"status":"failure",
+			"report":"Incorrect Username (does not exist in database)",
+			"code":400
+			}
+			return data
 	else:
-		abort(400, "No username or email address provided to authenticate")
+		data = {
+			"status":"failure",
+			"report":"No username or email address provided to authenticate",
+			"code":400
+			}
+		return data
 
 	#Check most that there is not a more recent user authentication attempt
 	sql = "SELECT pid, creation_time from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
@@ -161,19 +197,29 @@ def webAuthenticateUser():
 		comm_id = int(row[0])
 		creation_time = row[1]
 		if (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
-			abort(400, "Already authenticating another account")
+			data = {
+			"status":"failure",
+			"report":"Already authenticating another account",
+			"code":400
+			}
+			return data
 
 	#Save record of authentication
 	saveInteraction(req['ipaddress'], user_id)
 
 	try:
-		sql = "UPDATE users SET current_auth_comm_id=%s WHERE pid=%s"
-		cursor.execute(sql, (comm_id+1, user_id))
+		sql = "UPDATE users SET current_auth_comm_id=(SELECT pid from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms where user_id=%s)) WHERE pid=%s"
+		cursor.execute(sql, (user_id, user_id, user_id))
 		db.commit()
 	except:
-		abort(400, "Failed to update user account")
+		data = {
+			"status":"failure",
+			"report":"Failed to update user account",
+			"code":400
+			}
+		return data
 
-	return jsonify({'status':'success', 'user_id':str(user_id)})
+	return {'status':'success', 'user_id':str(user_id)}
 
 def saveInteraction(ipaddress, user_id):
 	try:
@@ -222,6 +268,13 @@ def webRemoveUser():
 	return jsonify({'status':'success'})
 
 @app.route('/api/v1.0/checkIfDeviceAuthed/<int:user_id>', methods=['GET'])
+def func_checkIfDeviceAuthed(user_id):
+	response = checkIfDeviceAuthed(user_id)
+	if response['status'] == "failure":
+		abort(response['code'], response['report'])
+	elif response['status'] == "success":
+		return jsonify(response)
+
 def checkIfDeviceAuthed(user_id):
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
 	cursor.execute(sql, (user_id,))
@@ -237,17 +290,37 @@ def checkIfDeviceAuthed(user_id):
 			if int(row[1]) == 1:
 				#Check to make sure that authentication is not greater than 15 seconds old
 				if (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
-					return jsonify({"status":"success"})
+					return {"status":"success"}
 				else:
-					abort(400, "request invalidated: too old")
+					data = {
+						"status":"failure",
+						"report":"Request invalidated: too old",
+						"code":400
+					}
+					return data
 			elif int(row[1]) == 0:
-				return jsonify({"status":"failure"})
+				return {"status":"failure"}
 			else:
-				abort(400, "Database error")
+				data = {
+				"status":"failure",
+				"report":"Database error",
+				"code":400
+			}
+			return data
 		else:
-			abort(400, "Database error")
+			data = {
+				"status":"failure",
+				"report":"Database error",
+				"code":400
+			}
+			return data
 	else:
-		abort(400, "User does not exist")
+		data = {
+			"status":"failure",
+			"report":"User does not exist",
+			"code":400
+		}
+		return data
 
 
 #Functions for mobile support
@@ -396,38 +469,38 @@ def application_error(e):
 
 #Website begins here:
 
-#Requires testing
-#Requires error handling
 @app.route('/example', methods=['GET'])
 def demo():
 	return render_template('example.html')
 
-@app.route('/example/authenticate', methods=['POST'])
+#Requires testing
+#Requires error handling
+@app.route('/demoauth', methods=['POST'])
 def authenticateDemo():
-	if attempted_username in request.form['username']:
+	if 'username' in request.form:
 		attempted_username = request.form['username']
 		if attempted_username == "akovesdy17":
 			#Correct username, continue
 			baseurl = "https://casso-1339.appspot.com/api/v1.0/authenticateUser"
-			data = {
+			query = {
 				"username" : attempted_username,
-				"apikey" : os.environ['CASSO_DEMO_APIKEY'],
+				"apikey" : os.environ['CASSO_DEMO_API_KEY'],
 				"ipaddress" : request.remote_addr
 			}
-			res = requests.post(baseurl + "/api/v1.0/authenticateUser", data=json.dumps(queryargs))
-			response = res.json()
-			if res.status_code == 200:
+			response = webAuthenticateUser(query)
+			#return response
+			if response['status'] == "success":
 				user_id = response['user_id']
 				timeup = time.time() + 15.0
 				while(time.time() < timeup):
-					res = requests.get(baseurl + "/api/v1.0/checkIfDeviceAuthed/" + user_id)
-					response = res.json()
-					if res.status_code == 200 and response['status'] == "success":
+					response = checkIfDeviceAuthed(user_id)
+					if response['status'] == "success":
 						redirect('/success')
-					time.sleep(0.2)
+						#return jsonify({"status":"success"})
+					time.sleep(0.5)
 				return jsonify({"status":"request timed out"})
 			else:
-				return jsonify({"status":"unable to authenticate"})
+				return jsonify({"status":response['report']})
 		else:
 			#Incorrect username
 			return jsonify({"status":"username_missing"})
