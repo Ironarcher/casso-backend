@@ -270,7 +270,8 @@ def func_checkIfDeviceAuthed(user_id):
 	if response['status'] == "failure":
 		abort(response['code'], response['report'])
 	elif response['status'] == "success":
-		return jsonify(response)
+		return jsonify({"status":"success"})
+		#return jsonify(response)
 
 def checkIfDeviceAuthed(user_id):
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
@@ -487,7 +488,7 @@ def authenticateDemo():
 			response = webAuthenticateUser(query)
 			#return response
 			if response['status'] == "success":
-				user_id = response['user_id']
+				user_id = int(response['user_id'])
 				timeup = time.time() + 15.0
 				while(time.time() < timeup):
 					response = checkIfDeviceAuthed(user_id)
