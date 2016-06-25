@@ -30,9 +30,9 @@ cursor = db.cursor()
 #Start here
 
 @app.route('/')
-def hello():
-	"""Return a friendly HTTP greeting."""
-	return "Hello again!"
+def homePage():
+	"""updated to return a homepage html"""
+	return render_template('main.html')
 
 @app.route('/api/v1.0/registerWebsite', methods=['POST'])
 def webRegisterWebsite():

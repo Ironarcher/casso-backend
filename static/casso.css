@@ -1,0 +1,59 @@
+body {
+    background-color: #EFEFEF;
+}
+.center {
+    margin: auto;
+	border: 3px solid #A9A9A9;
+	text-align: center;
+}
+h1 {
+    color: #A9A9A9;
+	font-family: Franklin Gothic Medium; 
+	font-size: 20px;
+	margin-left: 20px;
+	margin-right: 20px;
+}
+
+.button1 {
+    background-color: #CD1C1C;
+    border: none;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+	font-family: Franklin Gothic Medium; 
+	padding: 15px 32px;
+	border-radius: 4px;
+}
+.button1:hover {
+    background-color: #e64747;
+}
+.button2 {
+    background-color: #CD1C1C;
+    border: none;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+	font-family: Franklin Gothic Medium; 
+	padding: 3px 10px;
+	border-radius: 4px;
+}
+.button2:hover {
+    background-color: #e64747;
+}
+
+
+/*
+Button 1 is large button, seen on main page
+Button 2 is a smaller button, used for the login button
+
+Colors:
+#A9A9A9 is dark grey
+#EFEFEF is light grey
+#CD1C1C is the red from the logo
+#f08f8f is lightened red from logo for hovering
+change as needed
+*/
