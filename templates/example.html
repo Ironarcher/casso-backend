@@ -9,24 +9,27 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 		<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 		
-		<style>
-		.topspace {
-			margin-top: 40px;
-		}
-		#username_confirmed{
-			padding-right: 40px;
-		}
-		</style>
 	</head>
 	<body>
-		<div class="center" style="width:500px;margin-top:30px;">
-			<img src="{{ url_for('static', filename='logo_small.png') }}" alt="Casso Logo" style="width:200px;height:200px;">
-			<h1>Sign In</h1>
-			  <form method="POST" action="/example/" id="loginForm">
-			    <input type="text" size="40" name="Username" id="username">
-			<input type="submit" value="Login" class="button2">
-			</form>
-		<p id="information"></p>
+		<div class="container container-table">
+		    <div class="row vertical-center-row">
+		        <div class="text-center col-md-4 col-md-offset-4">
+		        	<div class="center" style="width:500px">
+						<img src="{{ url_for('static', filename='logo_original.png') }}" alt="Casso Logo" style="center-block;img-responsive;max-width:300px;max-height:300px">
+						<h1>Sign In</h1>
+						<form method="POST" action="/example/" id="loginForm" role="form">
+							<div class="form-group">
+						   		<input type="email" size="30" class="form-control" name="Username" id="username">
+							</div>
+							<button type="submit" value="Login" class="btn-btn-default button2">
+								<span style="float:left; margin-top:12px">Login with&nbsp</span>
+								<img src="{{ url_for('static', filename='casso_mini_small_white.png') }}" class="pull-right" style="width:40px;height:40px;">
+							</button>
+						</form>
+					<p id="information"></p>
+					</div>
+		        </div>
+		    </div>
 		</div>
 		<script>
 		$(document).ready(function(){

@@ -3,8 +3,9 @@ body {
 }
 .center {
     margin: auto;
-	border: 3px solid #A9A9A9;
-	text-align: center;
+    border: 3px solid #A9A9A9;
+    border-radius: 5px;
+    text-align: center;
 }
 h1 {
     color: #A9A9A9;
@@ -12,6 +13,8 @@ h1 {
 	font-size: 20px;
 	margin-left: 20px;
 	margin-right: 20px;
+    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
 .button1 {
@@ -25,6 +28,8 @@ h1 {
 	font-family: Franklin Gothic Medium; 
 	padding: 15px 32px;
 	border-radius: 4px;
+    margin-top:10px;
+    margin-bottom: 20px;
 }
 .button1:hover {
     background-color: #e64747;
@@ -35,14 +40,53 @@ h1 {
     color: white;
     text-align: center;
     text-decoration: none;
-    display: inline-block;
     font-size: 16px;
 	font-family: Franklin Gothic Medium; 
 	padding: 3px 10px;
 	border-radius: 4px;
+    margin-top: 10px;
 }
 .button2:hover {
     background-color: #e64747;
+}
+.container-fluid {
+    background-color: #EFEFEF;
+}
+.container-table {
+    display: table;
+    margin: 0 auto;
+}
+.vertical-center-row {
+    min-height: 100%;  /* Fallback for vh unit */
+    min-height: 100vh;
+  /* Make it a flex container */
+  display: -webkit-box;
+  display: -moz-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex; 
+  
+  /* Align the bootstrap's container vertically */
+    -webkit-box-align : center;
+  -webkit-align-items : center;
+       -moz-box-align : center;
+       -ms-flex-align : center;
+          align-items : center;
+  
+  /* In legacy web browsers such as Firefox 9
+     we need to specify the width of the flex container */
+  width: 100%;
+  
+  /* Also 'margin: 0 auto' doesn't have any effect on flex items in such web browsers
+     hence the bootstrap's container won't be aligned to the center anymore.
+  
+     Therefore, we should use the following declarations to get it centered again */
+         -webkit-box-pack : center;
+            -moz-box-pack : center;
+            -ms-flex-pack : center;
+  -webkit-justify-content : center;
+          justify-content : center;
+          margin-top:-150px;
 }
 
 
