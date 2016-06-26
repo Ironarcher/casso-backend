@@ -25,7 +25,7 @@ class CassoTesting(unittest.TestCase):
 		self.assertEqual(getStatusCode('/'), 200)
 
 	def testHelloWorld_message(self):
-		self.assertEqual(getResponseMessage('/'), "Hello again!")
+		self.assertIn("Link your smartphone to a website with our app", getResponseMessage('/'))
 
 
 	def testRegisterUserWrongFormat(self):

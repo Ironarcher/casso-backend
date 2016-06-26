@@ -19,7 +19,7 @@
 						<h1>Sign In</h1>
 						<form method="POST" action="/example/" id="loginForm" role="form">
 							<div class="form-group">
-						   		<input type="email" size="30" class="form-control" name="Username" id="username">
+						   		<input type="text" size="30" class="form-control" name="Username" id="username">
 							</div>
 							<button type="submit" value="Login" class="btn-btn-default button2">
 								<span style="float:left; margin-top:12px">Login with&nbsp</span>
@@ -27,6 +27,7 @@
 							</button>
 						</form>
 					<p id="information"></p>
+					<p id="information2"></p>
 					</div>
 		        </div>
 		    </div>
@@ -45,6 +46,7 @@
 					},
 					success:function(data){
 						$("#information").text(data['status']);
+						$("#information2").text(data['report']);
 						if(data['status'] == "success"){
 							window.location = "/success"
 						}

@@ -24,7 +24,6 @@ def getDB():
 
 db = getDB()
 db.ping(True)
-cursor = db.cursor()
 
 #Website handling functions
 #Start here
@@ -67,6 +66,7 @@ def webRegisterUser():
 		abort(400, "User already with that email or phone number already exists")
 
 	#Create a new user entry
+	cursor = db.cursor()
 	if 'username' in req:
 		sql = "INSERT INTO users (username, emailaddress, phonenumber, website_id) VALUES (%s,%s,%s,%s)"
 		cursor.execute(sql, (req['username'], req['emailaddress'], req['phonenumber'], websiteID))
@@ -78,17 +78,22 @@ def webRegisterUser():
 
 	sql = "UPDATE users SET phone_id=%s WHERE emailaddress=%s"
 	cursor.execute(sql, (req['phone-id'], req['emailaddress']))
+	db.commit()
+	cursor.close()
 
 	return jsonify({'status' : 'success'})
 
 def getWebsiteID(apikey):
 	try:
+		cursor = db.cursor()
 		sql = 'SELECT pid from websites WHERE secretkey=%s'
 		cursor.execute(sql, (apikey,))
 		if cursor.rowcount > 0:
 			result = cursor.fetchone()
+			cursor.close()
 			return int(result[0])
 		else:
+			cursor.close()
 			return None
 	except:
 		print("get website id error")
@@ -96,16 +101,20 @@ def getWebsiteID(apikey):
 
 def checkUserExists(emailaddress, phonenumber, websiteid):
 	try:
+		cursor = db.cursor()
 		sql1 = "SELECT pid from users WHERE emailaddress=%s AND website_id=%s"
 		cursor.execute(sql1, (emailaddress, websiteid))
 		if cursor.rowcount > 0:
+			cursor.close()
 			return True
 		else:
 			sql2 = "SELECT pid from users WHERE website_id=%s AND phonenumber=%s"
 			cursor.execute(sql2, (websiteid, phonenumber))
 			if cursor.rowcount  > 0:
+				cursor.close()
 				return True
 			else:
+				cursor.close()
 				return False
 	except:
 		print("check user error")
@@ -153,6 +162,7 @@ def webAuthenticateUser(req):
 		return data
 
 	#Verify username/email and mark user down for authentication (update timestamp)
+	cursor = db.cursor()
 	user_id = 0
 	if 'emailaddress' in req:
 		sql = "SELECT pid from users WHERE emailaddress=%s AND website_id=%s"
@@ -165,6 +175,7 @@ def webAuthenticateUser(req):
 			"report":"Incorrect Email address (does not exist in database)",
 			"code":400
 			}
+			cursor.close()
 			return data
 	elif 'username' in req:
 		sql = "SELECT pid from users WHERE username=%s AND website_id=%s"
@@ -177,6 +188,7 @@ def webAuthenticateUser(req):
 			"report":"Incorrect Username (does not exist in database)",
 			"code":400
 			}
+			cursor.close()
 			return data
 	else:
 		data = {
@@ -184,21 +196,24 @@ def webAuthenticateUser(req):
 			"report":"No username or email address provided to authenticate",
 			"code":400
 			}
+		cursor.close()
 		return data
 	#Check most that there is not a more recent user authentication attempt
-	sql = "SELECT pid, creation_time from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
+	sql = "SELECT pid, creation_time, authed from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
 	cursor.execute(sql, (user_id, user_id))
 	if cursor.rowcount > 0:
 		#Success
 		row = cursor.fetchone()
 		comm_id = int(row[0])
 		creation_time = row[1]
-		if (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
+		authed = int(row[2])
+		if authed == 0 and (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
 			data = {
 			"status":"failure",
 			"report":"Already authenticating another account",
 			"code":400
 			}
+			cursor.close()
 			return data
 
 	#Save record of authentication
@@ -214,15 +229,19 @@ def webAuthenticateUser(req):
 			"report":"Failed to update user account",
 			"code":400
 			}
+		cursor.close()
 		return data
 
+	cursor.close()
 	return {'status':'success', 'user_id':str(user_id)}
 
 def saveInteraction(ipaddress, user_id):
 	try:
+		cursor = db.cursor()
 		sql = "INSERT INTO comms (ipaddress, user_id) VALUES (%s, %s)"
 		cursor.execute(sql, (ipaddress, user_id))
 		db.commit()
+		cursor.close()
 	except:
 		abort(400, "Failed to add interaction to database")
 
@@ -246,9 +265,11 @@ def webRemoveUser():
 
 	#Check to make sure user exists
 	#Unshielded code: Prone to erroring
+	cursor = db.cursor()
 	sql = "SELECT pid from users WHERE website_id=%s AND phonenumber=%s AND emailaddress=%s"
 	cursor.execute(sql, (websiteID, req['phonenumber'], req['emailaddress']))
 	if cursor.rowcount < 1:
+		cursor.close()
 		abort(400, "User that you are trying to delete does not exist")
 	user_id = int(cursor.fetchone()[0])
 
@@ -260,8 +281,10 @@ def webRemoveUser():
 		db.commit()
 	except:
 		print("user deletion failed")
+		cursor.close()
 		abort(400, "Failed to access database to delete user")
 
+	cursor.close()
 	return jsonify({'status':'success'})
 
 @app.route('/api/v1.0/checkIfDeviceAuthed/<int:user_id>', methods=['GET'])
@@ -270,10 +293,10 @@ def func_checkIfDeviceAuthed(user_id):
 	if response['status'] == "failure":
 		abort(response['code'], response['report'])
 	elif response['status'] == "success":
-		return jsonify({"status":"success"})
-		#return jsonify(response)
+		return jsonify(response)
 
 def checkIfDeviceAuthed(user_id):
+	cursor = db.cursor()
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
 	cursor.execute(sql, (user_id,))
 	if cursor.rowcount > 0:
@@ -288,6 +311,7 @@ def checkIfDeviceAuthed(user_id):
 			if int(row[1]) == 1:
 				#Check to make sure that authentication is not greater than 15 seconds old
 				if (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
+					cursor.close()
 					return {"status":"success"}
 				else:
 					data = {
@@ -295,15 +319,23 @@ def checkIfDeviceAuthed(user_id):
 						"report":"Request invalidated: too old",
 						"code":400
 					}
+					cursor.close()
 					return data
 			elif int(row[1]) == 0:
-				return {"status":"failure"}
+				cursor.close()
+				data = {
+					"status":"failure",
+					"report":"not yet authenticated",
+					"code":200
+				}
+				return data
 			else:
 				data = {
 				"status":"failure",
 				"report":"Database error",
 				"code":400
 			}
+			cursor.close()
 			return data
 		else:
 			data = {
@@ -311,6 +343,7 @@ def checkIfDeviceAuthed(user_id):
 				"report":"Database error",
 				"code":400
 			}
+			cursor.close()
 			return data
 	else:
 		data = {
@@ -318,6 +351,7 @@ def checkIfDeviceAuthed(user_id):
 			"report":"User does not exist",
 			"code":400
 		}
+		cursor.close()
 		return data
 
 
@@ -325,12 +359,16 @@ def checkIfDeviceAuthed(user_id):
 #Start here
 
 def getUserFromPhone(emailaddress, phonenumber):
+	cursor = db.cursor()
 	sql = "SELECT pid from users WHERE emailaddress=%s AND phonenumber=%s"
 	cursor.execute(sql, (emailaddress, phonenumber))
 	if cursor.rowcount > 0:
 		#Success
-		return int(cursor.fetchone()[0])
+		response = int(cursor.fetchone()[0])
+		cursor.close()
+		return response
 	else:
+		cursor.close()
 		abort(400, "Incorrect secret phone number or email address")
 
 @app.route('/app/v1.0/registerDevice', methods=['POST'])
@@ -353,6 +391,7 @@ def registerDevice():
 	secretkey = randKey(40)
 
 	#Add security questons and phone-id to user profile
+	cursor = db.cursor()
 	sql = "INSERT INTO devices (secq1, secq2, secq3, secq4, seca1, seca2, seca3, seca4, phone_id, secretphonekey, user_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
 	cursor.execute(sql, (req['secq1'], req['secq2'], req['secq3'], req['secq4'], req['seca1'], req['seca2'], req['seca3'], req['seca4'], req['phone-id'],
 		secretkey, user_id))
@@ -364,11 +403,13 @@ def registerDevice():
 		url = cursor.fetchone()[0]
 	else:
 		url = "unknown"
+	cursor.close()
 	return jsonify({"status":"success", "user_id":user_id, "secretphonekey":secretkey, "url":url})
 
 #Potential security flaw: consider switching to POST request
 @app.route('/app/v1.0/checkAuth/<int:user_id>', methods=['GET'])
 def checkIfAuthRequired(user_id):
+	cursor = db.cursor()
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
 	cursor.execute(sql, (user_id,))
 	if cursor.rowcount > 0:
@@ -379,6 +420,7 @@ def checkIfAuthRequired(user_id):
 		if cursor.rowcount > 0:
 			#Success
 			result = int(cursor.fetchone()[0])
+			cursor.close()
 			if result == 1:
 				return jsonify({"0":"-1"})
 			elif result == 0:
@@ -386,8 +428,10 @@ def checkIfAuthRequired(user_id):
 			else:
 				abort(400, "Database error")
 		else:
+			cursor.close()
 			abort(400, "Database error")
 	else:
+		cursor.close()
 		abort(400, "User ID does not exist")
 
 @app.route('/app/v1.0/authenticate', methods=['POST'])
@@ -406,6 +450,7 @@ def authenticateByPhone():
 	if not 'phone-id' in req:
 		abort(400, "Phone ID missing")
 
+	cursor = db.cursor()
 	sql = "SELECT user_id from devices WHERE phone_id=%s AND secretphonekey=%s"
 	cursor.execute(sql, (req['phone-id'], req['secretphonekey']))
 	if cursor.rowcount > 0:
@@ -421,14 +466,19 @@ def authenticateByPhone():
 					sql = "UPDATE comms SET authed=true WHERE pid=(SELECT current_auth_comm_id FROM users WHERE pid=%s)"
 					cursor.execute(sql, (new_user_id,))
 					db.commit()
+					cursor.close()
 					return jsonify({"status":"success"})
 				else:
+					cursor.close()
 					abort(400, "Not allowed for authentication")
 			else:
+				cursor.close()
 				abort(400, "Phone number does not match other data")
 		else:
+			cursor.close()
 			abort(400, "Incorrect phone number provided")
 	else:
+		cursor.close()
 		abort(400, "Incorrect device information provided")
 
 @app.route('/app/v1.0/deactivate', methods=['POST'])
@@ -445,10 +495,12 @@ def deactivatePhone():
 	if not 'phone-id' in req:
 		abort(400, "Phone ID missing")
 
+	cursor = db.cursor()
 	#Delete phone record from database
 	sql = "DELETE FROM devices WHERE secretphonekey=%s AND user_id=%s AND phone_id=%s"
 	cursor.execute(sql, (req['secretphonekey'], req['user_id'], req['phone-id']))
 	db.commit()
+	cursor.close()
 	return jsonify({"status":"success"})
 
 #Error handling functions
@@ -479,7 +531,6 @@ def authenticateDemo():
 		attempted_username = request.form['username']
 		if attempted_username == "akovesdy17":
 			#Correct username, continue
-			baseurl = "https://casso-1339.appspot.com/api/v1.0/authenticateUser"
 			query = {
 				"username" : attempted_username,
 				"apikey" : os.environ['CASSO_DEMO_API_KEY'],
@@ -488,13 +539,15 @@ def authenticateDemo():
 			response = webAuthenticateUser(query)
 			#return response
 			if response['status'] == "success":
-				user_id = int(response['user_id'])
+				user_id = response['user_id']
 				timeup = time.time() + 15.0
 				while(time.time() < timeup):
 					response = checkIfDeviceAuthed(user_id)
 					if response['status'] == "success":
 						#redirect('/success')
 						return jsonify({"status":"success"})
+					elif response['status'] == 'failure' and response['report'] != "not yet authenticated":
+						return jsonify({"status":"failure", "report":response['report']})
 					time.sleep(0.5)
 				return jsonify({"status":"request timed out"})
 			else:
