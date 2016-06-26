@@ -198,7 +198,7 @@ class CassoTesting(unittest.TestCase):
 
 
 	def testCheckAuthReqUserDoesNotExist(self):
-		self.assertIn("User ID does not exist", getResponseMessage('/app/v1.0/checkAuth/909090'))
+		self.assertIn("error in checkauth", getResponseMessage('/app/v1.0/checkAuth/909090'))
 
 	def testCheckAuthReqCompletely(self):
 		self.assertIn("0", getResponseMessage('/app/v1.0/checkAuth/1'))
@@ -272,7 +272,7 @@ class CassoTesting(unittest.TestCase):
 
 
 	def testCheckIfDeviceAuthDoneFromWebsite_useriddoesnotexist(self):
-		self.assertIn("User does not exist", getResponseMessage('/api/v1.0/checkIfDeviceAuthed/909090'))
+		self.assertIn("error in check auth", getResponseMessage('/api/v1.0/checkIfDeviceAuthed/909090'))
 
 	def ZtestCheckIfDeviceAuthDoneFromWebsite(self):
 		self.assertIn("success", getResponseMessage('/api/v1.0/checkIfDeviceAuthed/1'))

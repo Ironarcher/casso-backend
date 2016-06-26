@@ -9,13 +9,14 @@ baseurl = "https://casso-1339.appspot.com"
 #baseurl = "http://localhost:8080"
 
 def main():
-	start_stress(20, 0)
+	start_stress(100, 0)
 	time.sleep(100000)
 
 def start_stress(qps_get, qps_post):
 	try:
 		for i in range(qps_get):
 			thread.start_new_thread(stress_get_req, ("checkthread"+str(i), 1))
+			time.sleep(0.1)
 		for j in range(qps_post):
 			thread.start_new_thread(stress_verify, ("postthread"+str(i), 60))
 	except:

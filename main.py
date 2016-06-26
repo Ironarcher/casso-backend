@@ -3,6 +3,7 @@ import random
 import MySQLdb
 import datetime
 import time
+from google.appengine.api import memcache
 # Import the Flask Framework
 from flask import Flask, jsonify, request, abort, render_template
 app = Flask(__name__)
@@ -232,6 +233,7 @@ def webAuthenticateUser(req):
 		cursor.close()
 		return data
 
+	mem_set_userauthcheck(user_id, 1)
 	cursor.close()
 	return {'status':'success', 'user_id':str(user_id)}
 
@@ -291,10 +293,19 @@ def webRemoveUser():
 def func_checkIfDeviceAuthed(user_id):
 	response = checkIfDeviceAuthed(user_id)
 	if response['status'] == "failure":
-		abort(response['code'], response['report'])
+		abort(400, "error in check auth")
 	elif response['status'] == "success":
 		return jsonify(response)
 
+def checkIfDeviceAuthed(user_id):
+	resp = mem_get_userauthcheck(user_id)
+	if resp == -1 or resp == 0:
+		return {"status":"failure"}
+	elif resp == 1:
+		return {"status":"success"}
+
+'''
+#Old function before memcache enable
 def checkIfDeviceAuthed(user_id):
 	cursor = db.cursor()
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
@@ -353,6 +364,7 @@ def checkIfDeviceAuthed(user_id):
 		}
 		cursor.close()
 		return data
+'''
 
 
 #Functions for mobile support
@@ -409,6 +421,42 @@ def registerDevice():
 #Potential security flaw: consider switching to POST request
 @app.route('/app/v1.0/checkAuth/<int:user_id>', methods=['GET'])
 def checkIfAuthRequired(user_id):
+	resp = mem_get_userauthcheck(user_id)
+	if resp == -1:
+		abort(400, "error in checkauth")
+	else:
+		#Return either 1 or 0
+		return str(resp)
+
+#Mem-caching functions
+
+def mem_get_userauthcheck(user_id):
+	key = 'user_auth_' + str(user_id)
+	data = memcache.get(key)
+	if data is not None:
+		return data
+	else:
+		response = checkIfAuthRequired(user_id)
+		if response == 0:
+			#User does not require authentication
+			memcache.add(key, 0, 30)
+			return 0
+		elif response == -1:
+			#Error has occured
+			return -1
+		else:
+			memcache.add(key, 1, 30)
+			return 1
+
+def mem_set_userauthcheck(user_id, value):
+	#Set: 1 is user requires authentication, 0 is user does not require authentication
+	key = 'user_auth' + str(user_id)
+	if not memcache.set(key, value):
+		return -1
+	else:
+		return 0
+
+def checkIfAuthRequired(user_id):
 	cursor = db.cursor()
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
 	cursor.execute(sql, (user_id,))
@@ -422,17 +470,17 @@ def checkIfAuthRequired(user_id):
 			result = int(cursor.fetchone()[0])
 			cursor.close()
 			if result == 1:
-				return jsonify({"0":"-1"})
+				return 0
 			elif result == 0:
-				return jsonify({"0":comm_id})
+				return comm_id
 			else:
-				abort(400, "Database error")
+				return -1
 		else:
 			cursor.close()
-			abort(400, "Database error")
+			return -1
 	else:
 		cursor.close()
-		abort(400, "User ID does not exist")
+		return -1
 
 @app.route('/app/v1.0/authenticate', methods=['POST'])
 def authenticateByPhone():
@@ -467,6 +515,7 @@ def authenticateByPhone():
 					cursor.execute(sql, (new_user_id,))
 					db.commit()
 					cursor.close()
+					mem_set_userauthcheck(new_user_id, 0)
 					return jsonify({"status":"success"})
 				else:
 					cursor.close()
@@ -546,8 +595,6 @@ def authenticateDemo():
 					if response['status'] == "success":
 						#redirect('/success')
 						return jsonify({"status":"success"})
-					elif response['status'] == 'failure' and response['report'] != "not yet authenticated":
-						return jsonify({"status":"failure", "report":response['report']})
 					time.sleep(0.5)
 				return jsonify({"status":"request timed out"})
 			else:
