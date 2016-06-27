@@ -233,8 +233,8 @@ def webAuthenticateUser(req):
 		cursor.close()
 		return data
 
-	mem_set_userauthcheck(user_id, 1)
 	cursor.close()
+	cache_result = mem_set_userauthcheck(user_id, 1)
 	return {'status':'success', 'user_id':str(user_id)}
 
 def saveInteraction(ipaddress, user_id):
@@ -428,6 +428,9 @@ def checkIfAuthRequired(user_id):
 		#Return either 1 or 0
 		return str(resp)
 
+def manual_checkIfAuthRequired(user_id):
+	return mem_get_userauthcheck(user_id)
+
 #Mem-caching functions
 
 def mem_get_userauthcheck(user_id):
@@ -436,27 +439,30 @@ def mem_get_userauthcheck(user_id):
 	if data is not None:
 		return data
 	else:
-		response = checkIfAuthRequired(user_id)
+		response = checkauthquery(user_id)
 		if response == 0:
 			#User does not require authentication
-			memcache.add(key, 0, 30)
+			memcache.add(key=key, value=0, time=3600)
 			return 0
 		elif response == -1:
 			#Error has occured
 			return -1
 		else:
-			memcache.add(key, 1, 30)
+			memcache.add(key=key, value=1, time=3600)
 			return 1
 
 def mem_set_userauthcheck(user_id, value):
 	#Set: 1 is user requires authentication, 0 is user does not require authentication
-	key = 'user_auth' + str(user_id)
-	if not memcache.set(key, value):
-		return -1
+	key = 'user_auth_' + str(user_id)
+	if not memcache.set(key=key, value=value, time=3600):
+		if not memcache.add(key=key, value=value, time=3600):
+			return -1
+		else:
+			return 0
 	else:
 		return 0
 
-def checkIfAuthRequired(user_id):
+def checkauthquery(user_id):
 	cursor = db.cursor()
 	sql = "SELECT current_auth_comm_id from users WHERE pid=%s"
 	cursor.execute(sql, (user_id,))
@@ -515,8 +521,11 @@ def authenticateByPhone():
 					cursor.execute(sql, (new_user_id,))
 					db.commit()
 					cursor.close()
-					mem_set_userauthcheck(new_user_id, 0)
-					return jsonify({"status":"success"})
+					update_cache_result = mem_set_userauthcheck(new_user_id, 0)
+					if update_cache_result == 0:
+						return jsonify({"status":"success"})
+					else:
+						return jsonify({"status":"issue updating memcache"})
 				else:
 					cursor.close()
 					abort(400, "Not allowed for authentication")
@@ -591,10 +600,12 @@ def authenticateDemo():
 				user_id = response['user_id']
 				timeup = time.time() + 15.0
 				while(time.time() < timeup):
-					response = checkIfDeviceAuthed(user_id)
-					if response['status'] == "success":
+					response = manual_checkIfAuthRequired(user_id)
+					if response == 0:
 						#redirect('/success')
 						return jsonify({"status":"success"})
+					elif response == -1:
+						return jsonify({"status":"error"})
 					time.sleep(0.5)
 				return jsonify({"status":"request timed out"})
 			else:

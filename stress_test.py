@@ -9,7 +9,7 @@ baseurl = "https://casso-1339.appspot.com"
 #baseurl = "http://localhost:8080"
 
 def main():
-	start_stress(100, 0)
+	start_stress(100, 10)
 	time.sleep(100000)
 
 def start_stress(qps_get, qps_post):
@@ -18,7 +18,8 @@ def start_stress(qps_get, qps_post):
 			thread.start_new_thread(stress_get_req, ("checkthread"+str(i), 1))
 			time.sleep(0.1)
 		for j in range(qps_post):
-			thread.start_new_thread(stress_verify, ("postthread"+str(i), 60))
+			thread.start_new_thread(stress_verify, ("postthread"+str(j), 20))
+			time.sleep(1)
 	except:
 		print 'thread error'
 
@@ -43,9 +44,6 @@ def verify():
 		"ipaddress" : "00.00"
 	}
 	response = post('/api/v1.0/authenticateUser', data)
-	if response['status'] == "success":
-		user_id = response['user_id']
-		get('/api/v1.0/checkIfDeviceAuthed/'+user_id)
 
 def get(url):
 	response = urllib.urlopen(baseurl + url)
@@ -53,7 +51,7 @@ def get(url):
 
 def post(url, queryargs):
 	res = requests.post(baseurl + url, data=json.dumps(queryargs))
-	return res.json()
+	return res.text
 
 if __name__ == '__main__':
 	main()
