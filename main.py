@@ -616,4 +616,4 @@ def authenticateDemo():
 
 @app.route('/success', methods=['GET'])
 def demo_success():
-	return "<h1>success</h1>"
+	return render_template('success.html')
