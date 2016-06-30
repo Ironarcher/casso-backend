@@ -32,24 +32,39 @@
   <div class="container-fluid">
     <div class="container">
       <div class="row">
-        <div class="col-md-6 col-md-offset-3" style="text-align: center">
-            <img src="{{ url_for('static', filename='logo_original.png') }}" alt="Casso Logo" style="center-block;img-responsive;max-width:500px;max-height:500px">
-        </div>
-		<div class="col-md-4 col-md-offset-4" style="text-align: center">	
-			<h1>First Name</h1>
-			<input type="text" size="10" class="form-control" name="Firstname" id="firstname">
-			<h1>Last Name</h1>
-			<input type="text" size="10" class="form-control" name="Lastname" id="lastname">
-			<h1>Website URL</h1>
-			<input type="text" size="10" class="form-control" name="wurl" id="wurl">
-			<h1>Amount of Users</h1>
-			<input type="text" size="10" class="form-control" name="numusers" id="numusers">
-			<h1>Optional Message</h1>
-			<input type="text" size="10" class="form-control" name="Message" id="msg">
-              <button class="button1" id="btn_click">Submit</button>
-              <script>
-              $('#btn_click').on('click', function() {  });
-              </script>
+    		<div class="col-md-4 col-md-offset-4" style="margin-top: 20px;">
+          <div class="panel panel-default">
+            <div class="panel-heading">Contact Us</div>
+            <div class="panel-body">
+              <form role="form">
+            <div class="form-group">
+              <label for="firstname">First Name</label>
+              <input type="text" class="form-control" id="firstname">
+            </div>
+            <div class="form-group">
+              <label for="lastname">Last Name</label>
+              <input type="text" class="form-control" id="lastname">
+            </div>
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" class="form-control" id="email">
+            </div>
+            <div class="form-group">
+              <label for="url">Website URL</label>
+              <input type="text" class="form-control" id="url">
+            </div>
+            <div class="form-group">
+              <label for="useramt">Amount of users on your website</label>
+              <input type="text" class="form-control" id="useramt">
+            </div>
+            <div class="form-group">
+              <label for="msg">Optional Message</label>
+              <textarea class="form-control" id="msg" rows="5"></textarea>
+            </div>
+            <button type="submit" class="btn btn-default">Submit</button>
+          </form>
+            </div>
+          </div>
         </div>
       </div>
     </div>
