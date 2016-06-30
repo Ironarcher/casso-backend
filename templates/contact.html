@@ -21,10 +21,10 @@
       <a class="navbar-brand" href="/">Casso Security</a>
     </div>
     <ul class="nav navbar-nav">
-      <li class="active"><a href="/">Home</a></li>
+      <li><a href="/">Home</a></li>
       <li><a href="/example">Try it Out</a></li>
       <li><a href="/pricing">Pricing</a></li> 
-      <li><a href="/contact">Contact Us</a></li> 
+      <li class="active"><a href="/contact">Contact Us</a></li> 
     </ul>
   </div>
 </nav>
@@ -33,12 +33,21 @@
       <div class="row">
         <div class="col-md-6 col-md-offset-3" style="text-align: center">
             <img src="{{ url_for('static', filename='logo_original.png') }}" alt="Casso Logo" style="center-block;img-responsive;max-width:500px;max-height:500px">
-            <h1>Make authenticating websites stronger and faster</h1>
-            <h1>Link your smartphone to a website with our app</h1>
-            <h1>Try it out for free</h1>
-              <button class="button1" id="btn_click">View a Demo</button>
+        </div>
+		<div class="col-md-4 col-md-offset-4" style="text-align: center">	
+			<h1>First Name</h1>
+			<input type="text" size="10" class="form-control" name="Firstname" id="firstname">
+			<h1>Last Name</h1>
+			<input type="text" size="10" class="form-control" name="Lastname" id="lastname">
+			<h1>Website URL</h1>
+			<input type="text" size="10" class="form-control" name="wurl" id="wurl">
+			<h1>Amount of Users</h1>
+			<input type="text" size="10" class="form-control" name="numusers" id="numusers">
+			<h1>Optional Message</h1>
+			<input type="text" size="10" class="form-control" name="Message" id="msg">
+              <button class="button1" id="btn_click">Submit</button>
               <script>
-              $('#btn_click').on('click', function() { window.location = '/example'; });
+              $('#btn_click').on('click', function() {  });
               </script>
         </div>
       </div>

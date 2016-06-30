@@ -580,6 +580,14 @@ def application_error(e):
 @app.route('/example', methods=['GET'])
 def demo():
 	return render_template('example.html')
+	
+@app.route('/contact', methods=['GET'])
+def contact():
+	return render_template('contact.html')
+	
+@app.route('/pricing', methods=['GET'])
+def pricing():
+	return render_template('pricing.html')
 
 #Requires testing
 #Requires error handling
