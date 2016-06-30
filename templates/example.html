@@ -24,10 +24,10 @@
 						</div>
 						<button type="submit" value="Login" class="btn-btn-default button2">
 							<span style="float:left; margin-top:12px">Login with&nbsp</span>
-							<img src="{{ url_for('static', filename='casso_mini_small_white.png') }}" class="pull-right" style="margin-top:3px;width:40px;height:40px;">
+							<img id="buttonimg" src="{{ url_for('static', filename='casso_mini_small_white.png') }}" class="pull-right" style="margin-top:3px;width:40px;height:40px;">
 						</button>
 					</form>
-				<img id="loadswirl" src="{{ url_for('static', filename='load.gif') }}" alt="Loading..." style="width:60px;height:60px;padding-top:20px;display:none">
+				<img id="loadswirl" src="{{ url_for('static', filename='load_simple.gif') }}" alt="Loading..." style="width:60px;height:60px;padding-top:20px;display:none">
 				<p id="information"></p>
 				<p id="information2"></p>
 				</div>
@@ -37,9 +37,14 @@
 		$(document).ready(function(){
 			//When the form is submitted by clicking submit
 			$("#loginForm").submit(function(event){
+				useFancyLoad = false; //Change to true to make fancy load active
 				event.preventDefault();
 				//$("#information").text("Started authentication");
-				document.getElementById("loadswirl").style.display = "inline";
+				if(useFancyLoad) {
+					document.getElementById("buttonimg").src = "{{ url_for('static', filename='load.gif') }}";
+				} else {
+					document.getElementById("loadswirl").style.display = "inline";
+				}
 				$("#information").text("");
 				$.ajax({
 					type:"POST",
@@ -48,7 +53,11 @@
 						username : $("#username").val(),
 					},
 					success:function(data){
-						document.getElementById("loadswirl").style.display = "none";
+						if(useFancyLoad) {
+							document.getElementById("buttonimg").src = "{{ url_for('static', filename='casso_mini_small_white.png') }}";
+						} else {
+							document.getElementById("loadswirl").style.display = "none";
+						}
 						//$("#information2").text(data['report']);
 						if(data['status'] == "request timed out"){
 							$("#information").text("Error: Request Timed Out");
