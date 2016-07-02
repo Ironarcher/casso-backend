@@ -3,6 +3,7 @@ import random
 import MySQLdb
 import datetime
 import time
+import requests
 from google.appengine.api import memcache
 # Import the Flask Framework
 from flask import Flask, jsonify, request, abort, render_template
@@ -625,3 +626,165 @@ def authenticateDemo():
 @app.route('/success', methods=['GET'])
 def demo_success():
 	return render_template('success.html')
+
+
+
+
+#API version 1.1
+
+def initRequest(request):
+	if not request.get_json(force=True, silent=True):
+		abort(400, "Request in the wrong format")
+	return request.get_json(force=True)
+
+def getWebsiteIDFromURL(url):
+	cursor = db.cursor()
+	sql = "SELECT pid from websites WHERE url=%s"
+	cursor.execute(sql, (url,))
+	if cursor.rowcount > 0:
+		response = int(cursor.fetchone()[0])
+		cursor.close()
+		return response
+	else:
+		cursor.close()
+		return -1
+
+def incrementLogin(websiteID):
+	cursor = db.cursor()
+	sql = "UPDATE websites SET loginamt = loginamt + 1 WHERE pid = %S"
+	cursor.execute(sql, websiteID)
+	db.commit()
+	cursor.close()
+
+def api1_1saveInteraction(ipaddress, user_id):
+	#Returns unique client_id key to return to client to allow token transmission
+	try:
+		cursor = db.cursor()
+		client_id = randKey(40)
+		sql = "INSERT INTO comms (ipaddress, user_id, token, client_id) VALUES (%s, %s)"
+		cursor.execute(sql, (ipaddress, user_id, randKey(40), client_id))
+		db.commit()
+		cursor.close()
+		return client_id
+	except:
+		abort(400, "Failed to add interaction to database")
+
+#Requires testing
+@app.route('/api/v1.1/clientAuth', methods=['POST'])
+def api1_1clientAuth():
+	#Arguments areeither email or username or phonenumber, website base url (public, registered)
+	req = initRequest(request)
+
+	#Function logic
+	if 'url' not in req:
+		abort(400, "Base URL missing from request")
+
+	websiteID = getWebsiteIDFromURL(req['url'])
+	if websiteID == -1:
+		abort(400, "Base URL does not exist in database")
+
+	#Verify username/email and mark user down for authentication (update timestamp)
+	cursor = db.cursor()
+	user_id = 0
+	if 'emailaddress' in req:
+		sql = "SELECT pid from users WHERE emailaddress=%s AND website_id=%s"
+		cursor.execute(sql, (req['emailaddress'], websiteID))
+		if cursor.rowcount > 0:
+			user_id = int(cursor.fetchone()[0])
+		else:
+			cursor.close()
+			abort(400, "Incorrect Email address (does not exist in database)")
+	elif 'username' in req:
+		sql = "SELECT pid from users WHERE username=%s AND website_id=%s"
+		cursor.execute(sql, (req['username'], websiteID))
+		if cursor.rowcount > 0:
+			user_id = int(cursor.fetchone()[0])
+		else:
+			cursor.close()
+			abort(400, "Incorrect Username (does not exist in database)")
+	else:
+		cursor.close()
+		abort(400, "No username or email address provided to authenticate")
+	#Check most that there is not a more recent user authentication attempt
+	sql = "SELECT pid, creation_time, authed from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms WHERE user_id=%s)"
+	cursor.execute(sql, (user_id, user_id))
+	if cursor.rowcount > 0:
+		#Success
+		row = cursor.fetchone()
+		comm_id = int(row[0])
+		creation_time = row[1]
+		authed = int(row[2])
+		if authed == 0 and (datetime.datetime.utcnow() - creation_time).total_seconds() < 15.0:
+			cursor.close()
+			abort(400, "Already authenticating another account")
+
+	#Save record of authentication
+	client_id = api1_1saveInteraction(request.remote_addr, user_id)
+
+	try:
+		sql = "UPDATE users SET current_auth_comm_id=(SELECT pid from comms WHERE user_id=%s AND creation_time=(SELECT max(creation_time) from comms where user_id=%s)) WHERE pid=%s"
+		cursor.execute(sql, (user_id, user_id, user_id))
+		db.commit()
+	except:
+		cursor.close()
+		abort(400, "Failed to update user account")
+
+	incrementLogin(websiteID)
+	cursor.close()
+	return {'status':'success', 'user_id':str(user_id), 'client_id':client_id}
+
+def getToken(user_id, client_id):
+	cursor = db.cursor()
+	sql = "SELECT token from comms WHERE client_id=%s AND user_id=%s"
+	cursor.execute(sql, (client_id, user_id))
+	if cursor.rowcount > 0:
+		#Success
+		result = cursor.fetchone()[0]
+		cursor.close()
+		return result
+	else:
+		cursor.close()
+		abort(400, "Wrong user ID or client ID provided")
+
+#Requires testing
+@app.route('/api/v1.1/clientCheck', methods=['POST'])
+def api1_1clientCheck():
+	#Arguments are user_id and client_id
+	req = initRequest(request)
+
+	if 'user_id' not in req:
+		abort(400, "User ID missing")
+
+	if 'client_id' not in req:
+		abort(400, "Client ID missing")
+
+	cursor = db.cursor()
+	sql = "SELECT authed FROM comms WHERE client_id=%s AND user_id=%s"
+	cursor.execute(sql, (req['client_id'], req['user_id']))
+	if cursor.rowcount > 0:
+		authed = int(cursor.fetchone()[0])
+		cursor.close()
+		#If not authed, false, return failure, if true then return token
+		if authed == 0:
+			return jsonify({"status":"failure"})
+		elif authed == 1:
+			return jsonify({"status":"success", "token":getToken(req['user_id'], req['client_id'])})
+	else:
+		cursor.close()
+		abort(400, "Wrong user ID or client ID")
+
+#Send firebase message to alert phone to authenticate
+def pushNotification(device_id):
+	pass
+
+#Requires testing
+#POST request sent by phone to Casso to authenticate
+@app.route('/api/v1.1/deviceAuth', methods=['POST'])
+def api1_1deviceAuth():
+	pass
+
+#Requires testing
+#POST request sent by website to Casso to check auth based on token
+@app.route('/api/v1.1/webAuth', methods=['POST'])
+def api1_1webAuth():
+	pass
