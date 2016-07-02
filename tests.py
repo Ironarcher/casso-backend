@@ -5,6 +5,7 @@ import json
 
 #baseurl = "https://casso-1339.appspot.com"
 baseurl = "http://localhost:8080"
+tempdeviceid = ""
 
 def getStatusCode(url):
 	response = urllib.urlopen(baseurl + url)
@@ -276,6 +277,69 @@ class CassoTesting(unittest.TestCase):
 
 	def ZtestCheckIfDeviceAuthDoneFromWebsite(self):
 		self.assertIn("success", getResponseMessage('/api/v1.0/checkIfDeviceAuthed/1'))
+
+
+	def testClientAuthWrongRequestFormat(self):
+		query = {}
+		self.assertIn("Request in the wrong format", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthNoURL(self):
+		query = {"test":"test"}
+		self.assertIn("Base URL missing from request", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthWrongURL(self):
+		query = {"url":"hfw"}
+		self.assertIn("Base URL does not exist in database", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthNoEmailAddressOrUsername(self):
+		query = {"url":"https://casso-1339.appspot.com"}
+		self.assertIn("No username or email address provided to authenticate", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthIncorrectEmailAddress(self):
+		query = {"url":"https://casso-1339.appspot.com", "emailaddress":"nonexistantemail@nothing.com"}
+		self.assertIn("Incorrect Email address (does not exist in database)", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthIncorrectEmailAddressWithWebsite(self):
+		query = {"url":"http://imcool.com", "emailaddress":"arpad.kovesdy@gmail.com"}
+		self.assertIn("Incorrect Email address (does not exist in database)", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthIncorrectUsername(self):
+		query = {"url":"https://casso-1339.appspot.com","username":"nonexistantusername"}
+		self.assertIn("Incorrect Username (does not exist in database)", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthIncorrectUsernameWithWebsite(self):
+		query = {"url":"http://imcool.com","username":"akovesdy17"}
+		self.assertIn("Incorrect Username (does not exist in database)", post('/api/v1.1/clientAuth', query))
+
+	def testClientAuthFull1(self):
+		query={"url":"https://casso-1339.appspot.com", "emailaddress":"arpad.kovesdy@gmail.com"}
+		res = requests.post(baseurl + '/api/v1.1/clientAuth', data=json.dumps(query))
+		tempdeviceid = res.json()['client_id']
+		self.assertIn("success", res.text)
+
+	def testClientAuthFull2(self):
+		query={"url":"https://casso-1339.appspot.com", "username":"akovesdy17"}
+		self.assertIn("success", post('/api/v1.1/clientAuth', query))
+
+	def testClientCheckAuthWrongRequestFormat(self):
+		query = {}
+		self.assertIn("Request in the wrong format", post('/api/v1.1/clientCheck', query))
+
+	def testClientCheckAuthNoUserID(self):
+		query = {"test":"test"}
+		self.assertIn("User ID missing", post('/api/v1.1/clientCheck', query))
+
+	def testClientCheckAuthNoClientID(self):
+		query = {"user_id":"34"}
+		self.assertIn("Client ID missing", post('/api/v1.1/clientCheck', query))
+
+	def testClientCheckAuthWrongUserIDandClientID(self):
+		query = {"user_id":"0", "client_id":"something"}
+		self.assertIn("Wrong user ID or client ID", post('/api/v1.1/clientCheck', query))
+
+	def ZtestClientCheckAuthFailure(self):
+		query = {"user_id":"34", "client_id":tempdeviceid}
+		self.assertIn("failure", post('/api/v1.1/clientCheck', query))
 
 
 if __name__ == '__main__':

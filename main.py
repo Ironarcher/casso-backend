@@ -3,7 +3,7 @@ import random
 import MySQLdb
 import datetime
 import time
-import requests
+#import requests
 from google.appengine.api import memcache
 # Import the Flask Framework
 from flask import Flask, jsonify, request, abort, render_template
@@ -651,8 +651,8 @@ def getWebsiteIDFromURL(url):
 
 def incrementLogin(websiteID):
 	cursor = db.cursor()
-	sql = "UPDATE websites SET loginamt = loginamt + 1 WHERE pid = %S"
-	cursor.execute(sql, websiteID)
+	sql = "UPDATE websites SET loginamt = loginamt + 1 WHERE pid = %s"
+	cursor.execute(sql, (websiteID,))
 	db.commit()
 	cursor.close()
 
@@ -661,7 +661,7 @@ def api1_1saveInteraction(ipaddress, user_id):
 	try:
 		cursor = db.cursor()
 		client_id = randKey(40)
-		sql = "INSERT INTO comms (ipaddress, user_id, token, client_id) VALUES (%s, %s)"
+		sql = "INSERT INTO comms (ipaddress, user_id, token, client_id) VALUES (%s, %s, %s, %s)"
 		cursor.execute(sql, (ipaddress, user_id, randKey(40), client_id))
 		db.commit()
 		cursor.close()
@@ -731,7 +731,7 @@ def api1_1clientAuth():
 
 	incrementLogin(websiteID)
 	cursor.close()
-	return {'status':'success', 'user_id':str(user_id), 'client_id':client_id}
+	return jsonify({'status':'success', 'user_id':str(user_id), 'client_id':client_id})
 
 def getToken(user_id, client_id):
 	cursor = db.cursor()
@@ -774,13 +774,20 @@ def api1_1clientCheck():
 		abort(400, "Wrong user ID or client ID")
 
 #Send firebase message to alert phone to authenticate
+'''
 def pushNotification(device_id):
-	pass
+	apikey = ""
+	url = "https://fcm.googleapis.com/fcm/send"
+	headers = {"Authorization":"key=%s" % (apikey,), "Content-Type":"application/json"}
+	queryargs = {"data":{"reqtype" : "auth"}, "to": device_id}
+	res = requests.post(url, data=json.dumps(queryargs))
+'''
 
 #Requires testing
 #POST request sent by phone to Casso to authenticate
 @app.route('/api/v1.1/deviceAuth', methods=['POST'])
 def api1_1deviceAuth():
+	#Use API version 1.0 function phoneAuthenticate for this
 	pass
 
 #Requires testing
@@ -788,3 +795,33 @@ def api1_1deviceAuth():
 @app.route('/api/v1.1/webAuth', methods=['POST'])
 def api1_1webAuth():
 	pass
+
+#Requires testing
+#POST request sent by phone to Casso to signal the device's FCM token
+@app.route('/api/v1.1/FCMTokenUpdate', methods=['POST'])
+def api1_1FMCTokenUpdate():
+	#Arguments are secret phone key, phone-id, and new token
+	req = initRequest(request)
+
+	if not 'secretphonekey' in req:
+		abort(400, "Missing secret phone key")
+	if not 'phone-id' in req:
+		abort(400, "Missing phone ID")
+	if not 'fcmtoken' in req:
+		abort(400, "Missing new FCM token")
+
+	cursor = db.cursor()
+	sql = "SELECT pid FROM devices WHERE secretphonekey=%s and phone_id=%s"
+	cursor.execute(sql, (req['secretphonekey']), req['phone-id'])
+	if cursor.rowcount > 0:
+		pid = int(cursor.fetchone()[0])
+		sql = "UPDATE devices SET fcmtoken=%s WHERE pid=%s"
+		cursor.execute(sql, (req['fcmtoken']), pid)
+		db.commit()
+		cursor.close()
+		return jsonify({"status":"success"})
+	else:
+		cursor.close()
+		abort(400, "Incorrect secret phone key or phone ID provided")
+
+
