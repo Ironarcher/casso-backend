@@ -774,14 +774,19 @@ def api1_1clientCheck():
 		abort(400, "Wrong user ID or client ID")
 
 #Send firebase message to alert phone to authenticate
-'''
-def pushNotification(device_id):
-	apikey = ""
+#Arguments: Device ID (in the future)
+def pushNotification():
 	url = "https://fcm.googleapis.com/fcm/send"
+	apikey = os.environ['FCM_API_KEY']
+	#Temporary connection to one device
+	device_id = "dJyQgsjQkyk:APA91bHYyMMQY8Ap33qkEMt2dFfSOzfG-wdwnAzbi7rzeul7Gured0vOiCs_dYu3Q1Rgf_tdR80b3dWcWc9BzbYAZ0bcyjcm275qa_T4fy69GEt1p5Bwdodi07QT098k9mnTqZuuF3mc"
 	headers = {"Authorization":"key=%s" % (apikey,), "Content-Type":"application/json"}
-	queryargs = {"data":{"reqtype" : "auth"}, "to": device_id}
-	res = requests.post(url, data=json.dumps(queryargs))
-'''
+	queryargs = json.dumps({"data":{"reqtype" : "auth"}, "to": device_id})
+
+	http = urllib3.PoolManager()
+	res = http.request("POST", url, headers=headers, body=queryargs)
+
+	results = res.read()
 
 #Requires testing
 #POST request sent by phone to Casso to authenticate
