@@ -3,8 +3,10 @@ import random
 import MySQLdb
 import datetime
 import time
+import json
 #import requests
 from google.appengine.api import memcache
+from google.appengine.api import urlfetch
 # Import the Flask Framework
 from flask import Flask, jsonify, request, abort, render_template
 app = Flask(__name__)
@@ -731,6 +733,7 @@ def api1_1clientAuth():
 
 	incrementLogin(websiteID)
 	cursor.close()
+	pushNotification()
 	return jsonify({'status':'success', 'user_id':str(user_id), 'client_id':client_id})
 
 def getToken(user_id, client_id):
@@ -783,10 +786,14 @@ def pushNotification():
 	headers = {"Authorization":"key=%s" % (apikey,), "Content-Type":"application/json"}
 	queryargs = json.dumps({"data":{"reqtype" : "auth"}, "to": device_id})
 
-	http = urllib3.PoolManager()
-	res = http.request("POST", url, headers=headers, body=queryargs)
+	res = urlfetch.fetch(
+		url=url,
+		payload=queryargs,
+		method=urlfetch.POST,
+		headers=headers
+		)
 
-	results = res.read()
+	results = res.content
 
 #Requires testing
 #POST request sent by phone to Casso to authenticate
