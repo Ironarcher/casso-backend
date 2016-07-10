@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+	  <title>Casso Security - Demo Version 2</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<!--<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+				bootstrap code commented out, possible migration later-->
+		<link rel=stylesheet type=text/css href="{{ url_for('static', filename='casso.css') }}">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+		<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+		<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+		
+	</head>
+	<body>
+		<div class="container container-table">
+		    <div class="text-center col-md-4 col-md-offset-4">
+				<div class="center" style="width:500px;margin-top:15px;">
+					<img src="{{ url_for('static', filename='logo_original.png') }}" alt="Casso Logo" style="center-block;img-responsive;max-width:300px;max-height:300px">
+					<h1>Sign In</h1>
+					<form method="POST" action="/demo/" id="loginForm" role="form">
+						<div class="form-group">
+					   		<input type="text" size="30" class="form-control" name="E-mail Address" id="emailaddress">
+						</div>
+						<button type="submit" value="Login" class="btn-btn-default button2">
+							<span style="float:left; margin-top:12px">Login with&nbsp</span>
+							<img id="buttonimg" src="{{ url_for('static', filename='casso_mini_small_white.png') }}" class="pull-right" style="margin-top:3px;width:40px;height:40px;">
+						</button>
+					</form>
+				<img id="loadswirl" src="{{ url_for('static', filename='load_simple.gif') }}" alt="Loading..." style="width:60px;height:60px;padding-top:20px;display:none">
+				<p id="information"></p>
+				<p id="information2"></p>
+				</div>
+	        </div>
+		</div>
+		<script>
+		$(document).ready(function(){
+			//When the form is submitted by clicking submit
+			$("#loginForm").submit(function(event){
+				useFancyLoad = false; //Change to true to make fancy load active
+				event.preventDefault();
+				//$("#information").text("Started authentication");
+				if(useFancyLoad) {
+					document.getElementById("buttonimg").src = "{{ url_for('static', filename='load.gif') }}";
+				} else {
+					document.getElementById("loadswirl").style.display = "inline";
+				}
+				$("#information").text("");
+				var client_id = "";
+				var user_id = "";
+				$.ajax({
+					type:"POST",
+					url:"/api/v1.1/clientAuth",
+					data:{
+						emailaddress : $("#emailaddress").val(),
+						url : "https://casso-1339.appspot.com",
+					},
+					success:function(data){
+						if(data['status'] == "success"){
+							$("#information").text("Requested");
+							client_id = data['client_id'];
+							user_id = data['user_id'];
+							cycleCheck(user_id, client_id);
+						} else{
+							$("#information").text("An error occured.")
+						}
+					},
+					error: function(xhr, status, error){
+						alert(xhr.responseText);
+					}
+				});
+				return false;
+			});
+		});
+		function cycleCheck(user_id, client_id){
+			$.ajax({
+					type: "POST",
+					url:"/api/v1.1/clientCheck",
+					data:{
+						user_id : user_id,
+						client_id : client_id,
+					},
+					success:function(data){
+						if(data['status'] == "success"){
+							alert(data['token']);
+						} else if(data['status'] == "failure"){
+							setTimeout(function(){
+								cycleCheck(user_id, client_id);
+							}, 3000)
+						}
+					},
+					error: function(xhr, status, error){
+						alert(xhr.responseText);
+					}
+				});
+		}
+		</script>
+	</body>
+</html>

@@ -625,11 +625,44 @@ def authenticateDemo():
 			#Incorrect username
 			return jsonify({"status":"username_missing"})
 
+@app.route('/demoauth2', methods=['POST'])
+def authenticateDemo2():
+	if 'username' in request.form:
+		attempted_username = request.form['username']
+		if attempted_username == "akovesdy17":
+			#Correct username, continue
+			query = {
+				"username" : attempted_username,
+				"apikey" : os.environ['CASSO_DEMO_API_KEY'],
+				"ipaddress" : request.remote_addr
+			}
+			response = webAuthenticateUser(query)
+			#return response
+			if response['status'] == "success":
+				user_id = response['user_id']
+				timeup = time.time() + 15.0
+				while(time.time() < timeup):
+					response = manual_checkIfAuthRequired(user_id)
+					if response == 0:
+						#redirect('/success')
+						return jsonify({"status":"success"})
+					elif response == -1:
+						return jsonify({"status":"error"})
+					time.sleep(0.5)
+				return jsonify({"status":"request timed out"})
+			else:
+				return jsonify({"status":response['report']})
+		else:
+			#Incorrect username
+			return jsonify({"status":"username_missing"})
+
 @app.route('/success', methods=['GET'])
 def demo_success():
 	return render_template('success.html')
 
-
+@app.route("/demo", methods=['GET'])
+def demo2():
+	return render_template('demo.html')
 
 
 #API version 1.1
@@ -672,10 +705,11 @@ def api1_1saveInteraction(ipaddress, user_id):
 		abort(400, "Failed to add interaction to database")
 
 #Requires testing
+#From client browser to casso server to request authentication token
 @app.route('/api/v1.1/clientAuth', methods=['POST'])
 def api1_1clientAuth():
-	#Arguments areeither email or username or phonenumber, website base url (public, registered)
-	req = initRequest(request)
+	#Arguments are either email or username or phonenumber, website base url (public, registered)
+	req = request.form
 
 	#Function logic
 	if 'url' not in req:
@@ -750,10 +784,12 @@ def getToken(user_id, client_id):
 		abort(400, "Wrong user ID or client ID provided")
 
 #Requires testing
+#From client's browser to casso servers, checking if the phone authenticated
+#And sending back the token if it has (only if the client_id is correct)
 @app.route('/api/v1.1/clientCheck', methods=['POST'])
 def api1_1clientCheck():
 	#Arguments are user_id and client_id
-	req = initRequest(request)
+	req = request.form
 
 	if 'user_id' not in req:
 		abort(400, "User ID missing")
